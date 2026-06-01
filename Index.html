@@ -122,16 +122,24 @@
       "Sigue. Eso es todo el secreto.",
     ];
 
-    /* ── Storage (localStorage para app standalone) ── */
+    /* ── Storage ── */
     function useStore() {
       const [data, setData] = useState(defaultData);
       const [loaded, setLoaded] = useState(false);
       useEffect(() => {
+        let done = false;
+        function finish(d) {
+          if (done) return; done = true;
+          if (d) setData(d);
+          setLoaded(true);
+        }
+        const t = setTimeout(() => finish(null), 3000);
         try {
           const raw = localStorage.getItem(KEY);
-          if (raw) setData({ ...defaultData, ...JSON.parse(raw) });
-        } catch {}
-        setLoaded(true);
+          if (raw) finish({ ...defaultData, ...JSON.parse(raw) });
+          else finish(null);
+        } catch { finish(null); }
+        clearTimeout(t);
       }, []);
       function save(nd) {
         setData(nd);
