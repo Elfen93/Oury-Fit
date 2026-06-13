@@ -14,7 +14,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
 
   <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://accounts.google.com/gsi/client" async></script>
 
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -22,15 +22,21 @@
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #0a0a0f; }
-    #root { height: 100%; }
+    html, body, #root { height: 100%; background: #0a0a0f; }
     button { font-family: inherit; }
     input { font-family: inherit; }
     ::-webkit-scrollbar { width: 0; height: 0; }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Fallback visible mientras carga React -->
+    <div style="background:#0a0a0f;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;font-family:system-ui,sans-serif;">
+      <div style="width:36px;height:36px;border:3px solid #2a2a38;border-top-color:#c4f542;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+      <div style="color:#56566a;font-size:13px;">Iniciando OuryFit...</div>
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  </div>
 
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
@@ -381,30 +387,44 @@
     /* ── Login Screen ── */
     function LoginScreen({ onLogin, error }) {
       const [googleReady, setGoogleReady] = useState(false);
+      const [logging, setLogging] = useState(false);
 
       useEffect(() => {
         let tries = 0;
         function tryInit() {
           tries++;
-          if (window.google && window.google.accounts) {
+          if (window.google && window.google.accounts && window.google.accounts.id) {
             window.google.accounts.id.initialize({
               client_id: GOOGLE_CLIENT_ID,
               callback: onLogin,
+              ux_mode: "popup",
             });
-            window.google.accounts.id.renderButton(
-              document.getElementById("g_signin"),
-              { theme: "filled_black", size: "large", width: 280, text: "continue_with" }
-            );
             setGoogleReady(true);
-          } else if (tries < 20) {
-            setTimeout(tryInit, 300);
+          } else if (tries < 30) {
+            setTimeout(tryInit, 400);
           }
         }
-        setTimeout(tryInit, 300);
+        tryInit();
       }, []);
+
+      function handleClick() {
+        if (!googleReady) return;
+        setLogging(true);
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // Fallback: renderizar botón si el prompt no funciona
+            window.google.accounts.id.renderButton(
+              document.getElementById("g_signin"),
+              { theme: "filled_black", size: "large", width: 260, text: "continue_with" }
+            );
+          }
+          setLogging(false);
+        });
+      }
 
       return (
         <div style={{background:D.bg,minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,-apple-system,sans-serif",color:D.text,padding:"2rem"}}>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
           <div style={{width:72,height:72,borderRadius:22,background:`linear-gradient(135deg,${D.lime},${D.limeDark})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 40px ${D.lime}55`,marginBottom:20}}>
             <i className="ti ti-bolt" style={{fontSize:38,color:D.bg}}/>
           </div>
@@ -420,14 +440,21 @@
           <div style={{background:D.card,border:`1px solid ${D.line}`,borderRadius:20,padding:28,textAlign:"center",maxWidth:320,width:"100%"}}>
             <div style={{fontSize:15,fontWeight:600,color:D.text,marginBottom:6}}>Entra con tu cuenta Google</div>
             <div style={{fontSize:13,color:D.dim,marginBottom:24}}>Tus datos se guardan en la nube y están disponibles en cualquier dispositivo.</div>
-            <div id="g_signin" style={{display:"flex",justifyContent:"center",minHeight:44}}>
-              {!googleReady && (
-                <div style={{display:"flex",alignItems:"center",gap:8,color:D.faint,fontSize:13}}>
-                  <div style={{width:16,height:16,border:`2px solid ${D.line}`,borderTopColor:D.lime,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-                  Cargando...
-                </div>
+
+            {/* Botón nativo GSI renderizado por Google */}
+            <div id="g_signin" style={{display:"flex",justifyContent:"center",marginBottom:12}}/>
+
+            {/* Botón manual de respaldo */}
+            <button onClick={handleClick} disabled={!googleReady}
+              style={{width:"100%",padding:"13px",background:googleReady?`linear-gradient(135deg,${D.lime},${D.limeDark})`:D.surface,color:googleReady?D.bg:D.faint,border:"none",borderRadius:12,fontSize:14,fontWeight:700,cursor:googleReady?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+              {!googleReady ? (
+                <><div style={{width:16,height:16,border:`2px solid ${D.faint}`,borderTopColor:D.lime,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/> Cargando...</>
+              ) : logging ? (
+                <><div style={{width:16,height:16,border:`2px solid ${D.bg}`,borderTopColor:"rgba(0,0,0,0.3)",borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/> Conectando...</>
+              ) : (
+                <><i className="ti ti-brand-google" style={{fontSize:18}}/> Continuar con Google</>
               )}
-            </div>
+            </button>
           </div>
         </div>
       );
