@@ -427,14 +427,29 @@
       );
     }
 
+    const SESSION_KEY = "ouryfit_session";
+    function loadSession() { try { const r=localStorage.getItem(SESSION_KEY); return r?JSON.parse(r):null; } catch { return null; } }
+    function saveSession(s) { try { localStorage.setItem(SESSION_KEY,JSON.stringify(s)); } catch {} }
+    function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch {} }
+
     function Entreno({ data, save, setView }) {
       const hoy=nombreDia(),hk=hoyKey();
-      const [diaIdx,setDiaIdx]=useState(()=>{const i=RUTINA.findIndex(r=>r.dia.toLowerCase()===hoy.toLowerCase());return i>=0?i:0;});
-      const [sets,setSets]=useState({}),[pesos,setPesos]=useState({}),[timer,setTimer]=useState(null),[toast,setToast]=useState(null);
+      const defaultDiaIdx = ()=>{const i=RUTINA.findIndex(r=>r.dia.toLowerCase()===hoy.toLowerCase());return i>=0?i:0;};
+
+      const [diaIdx,setDiaIdx]=useState(()=>{ const s=loadSession(); return s?.fecha===hk ? (s.diaIdx??defaultDiaIdx()) : defaultDiaIdx(); });
+      const [sets,setSets]=useState(()=>{ const s=loadSession(); return s?.fecha===hk ? (s.sets||{}) : {}; });
+      const [pesos,setPesos]=useState(()=>{ const s=loadSession(); return s?.fecha===hk ? (s.pesos||{}) : {}; });
+      const [timer,setTimer]=useState(null),[toast,setToast]=useState(null);
+
       const rut=RUTINA[diaIdx],ac=rut.acento;
       const totalSets=rut.ejercicios.reduce((a,e)=>a+e.series,0);
       const hechos=Object.values(sets).flat().filter(Boolean).length;
       const pct=Math.round((hechos/totalSets)*100);
+
+      // Persist session on every change
+      useEffect(()=>{ saveSession({fecha:hk,diaIdx,sets,pesos}); },[diaIdx,sets,pesos]);
+
+      function cambiarDia(i){ setDiaIdx(i);setSets({});setPesos({});setTimer(null); }
       function toggle(ei,si){
         const arr=sets[ei]||Array(rut.ejercicios[ei].series).fill(false);
         const nv=[...arr];nv[si]=!nv[si];
@@ -450,6 +465,7 @@
         const recs={...data.records};
         rut.ejercicios.forEach(ej=>{const p=+pesos[ej.nombre];if(p&&(!recs[ej.nombre]||p>=recs[ej.nombre].peso))recs[ej.nombre]={peso:p,fecha:hk};});
         const nr=data.racha+1;
+        clearSession();
         save({...data,racha:nr,mejorRacha:Math.max(data.mejorRacha,nr),
           registros:{...data.registros,[hk]:{rutina:rut.nombre,sets:hechos}},records:recs});
         setView("home");
@@ -462,7 +478,7 @@
           <TopBar titulo={rut.nombre} sub={`${rut.dia} · Semana ${data.semana}`} onBack={()=>setView("home")} acento={ac}/>
           <div style={{display:"flex",gap:8,marginBottom:16,overflowX:"auto",paddingBottom:4}}>
             {RUTINA.map((r,i)=>(
-              <button key={i} onClick={()=>{setDiaIdx(i);setSets({});setPesos({});setTimer(null);}}
+              <button key={i} onClick={()=>cambiarDia(i)}
                 style={{flexShrink:0,padding:"9px 15px",fontSize:12,background:i===diaIdx?r.acento:D.card,color:i===diaIdx?D.bg:D.dim,border:`1px solid ${i===diaIdx?r.acento:D.line}`,borderRadius:12,cursor:"pointer",fontWeight:700}}>
                 {r.corto}
               </button>
