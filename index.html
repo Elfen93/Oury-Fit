@@ -9,16 +9,13 @@
   <meta name="apple-mobile-web-app-title" content="OuryFit" />
   <title>OuryFit</title>
 
-  <!-- PWA manifest inline -->
   <link rel="manifest" href="manifest.json" />
-
-  <!-- Icons (opcional: reemplaza con tu propio icono) -->
   <link rel="apple-touch-icon" href="icon.png" />
-
-  <!-- Tabler Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css" />
 
-  <!-- React + Babel (sin build tool, funciona directamente) -->
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
   <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -36,8 +33,10 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+    const { useState, useEffect, useRef, useCallback } = React;
     const KEY = "ouryfit_v4";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx9a53S1XnVF062jH6zPP9gsBruTWSlBn7EBbMq-YGVwTjuD-tiQ2MgfxMNMWqeK8f3ZQ/exec";
+    const GOOGLE_CLIENT_ID = "362581552628-qroeqtmtj5sfvd3o15fp0o0ueitdu0av.apps.googleusercontent.com";
 
     const D = {
       bg: "#0a0a0f", surface: "#13131c", card: "#1a1a26", cardHi: "#22222f",
@@ -122,30 +121,127 @@
       "Sigue. Eso es todo el secreto.",
     ];
 
-    /* ── Storage ── */
+    /* ── Google Sheets API ── */
+    async function sheetLoad(email) {
+      const url = `${SCRIPT_URL}?action=load&email=${encodeURIComponent(email)}`;
+      const r = await fetch(url);
+      const json = await r.json();
+      if (json.status === "error") throw new Error(json.error);
+      return json.data;
+    }
+
+    async function sheetSave(email, data) {
+      await fetch(SCRIPT_URL, {
+        method: "POST",
+        body: JSON.stringify({ action: "save", email, data }),
+      });
+    }
+
+    /* ── Convert flat sheet data ↔ app data ── */
+    function sheetToApp(raw) {
+      const perfil = raw.perfil || {};
+      const entrenos = raw.entrenos || {};
+      const comidas = raw.comidas || {};
+      const agua = raw.agua || {};
+      const peso = raw.peso || {};
+      const records = raw.records || {};
+      return {
+        ...defaultData,
+        profile: perfil.profile || defaultData.profile,
+        semana: perfil.semana ?? 1,
+        racha: perfil.racha ?? 0,
+        mejorRacha: perfil.mejorRacha ?? 0,
+        metas: perfil.metas || defaultData.metas,
+        registros: entrenos,
+        comidas,
+        agua,
+        pesoCorporal: peso,
+        records,
+      };
+    }
+
+    function appToSheet(data) {
+      return {
+        perfil: {
+          profile: data.profile,
+          semana: data.semana,
+          racha: data.racha,
+          mejorRacha: data.mejorRacha,
+          metas: data.metas,
+        },
+        entrenos: data.registros,
+        comidas: data.comidas,
+        agua: data.agua,
+        peso: data.pesoCorporal,
+        records: data.records,
+      };
+    }
+
+    /* ── Auth + Storage ── */
     function useStore() {
       const [data, setData] = useState(defaultData);
       const [loaded, setLoaded] = useState(false);
+      const [email, setEmail] = useState(() => localStorage.getItem("ouryfit_email") || null);
+      const [authError, setAuthError] = useState(null);
+      const [syncing, setSyncing] = useState(false);
+      const saveTimer = useRef(null);
+
+      // Load from Sheets when email is set
       useEffect(() => {
-        let done = false;
-        function finish(d) {
-          if (done) return; done = true;
-          if (d) setData(d);
-          setLoaded(true);
-        }
-        const t = setTimeout(() => finish(null), 3000);
-        try {
-          const raw = localStorage.getItem(KEY);
-          if (raw) finish({ ...defaultData, ...JSON.parse(raw) });
-          else finish(null);
-        } catch { finish(null); }
-        clearTimeout(t);
-      }, []);
-      function save(nd) {
-        setData(nd);
-        try { localStorage.setItem(KEY, JSON.stringify(nd)); } catch {}
+        if (!email) return;
+        setLoaded(false);
+        sheetLoad(email)
+          .then(raw => {
+            const app = sheetToApp(raw);
+            setData(app);
+            setLoaded(true);
+          })
+          .catch(err => {
+            if (err.message === "acceso_denegado") {
+              setAuthError("acceso_denegado");
+              localStorage.removeItem("ouryfit_email");
+              setEmail(null);
+            } else {
+              // Fallback to localStorage if offline
+              const raw = localStorage.getItem(KEY);
+              if (raw) setData({ ...defaultData, ...JSON.parse(raw) });
+              setLoaded(true);
+            }
+          });
+      }, [email]);
+
+      function handleGoogleLogin(response) {
+        // Decode JWT to get email
+        const payload = JSON.parse(atob(response.credential.split(".")[1]));
+        const userEmail = payload.email;
+        localStorage.setItem("ouryfit_email", userEmail);
+        setAuthError(null);
+        setEmail(userEmail);
       }
-      return { data, save, loaded };
+
+      function logout() {
+        localStorage.removeItem("ouryfit_email");
+        setEmail(null);
+        setData(defaultData);
+        setLoaded(false);
+      }
+
+      const save = useCallback((nd) => {
+        setData(nd);
+        // Save to localStorage immediately
+        try { localStorage.setItem(KEY, JSON.stringify(nd)); } catch {}
+        // Debounce save to Sheets (2s)
+        if (saveTimer.current) clearTimeout(saveTimer.current);
+        saveTimer.current = setTimeout(async () => {
+          if (!email) return;
+          setSyncing(true);
+          try { await sheetSave(email, appToSheet(nd)); }
+          catch {}
+          setSyncing(false);
+        }, 2000);
+      }, [email]);
+
+      return { data, save, loaded, email, handleGoogleLogin, logout, authError, syncing };
     }
 
     const hoyKey = () => new Date().toISOString().split("T")[0];
@@ -282,7 +378,43 @@
       );
     }
 
-    function Dashboard({ data, setView }) {
+    /* ── Login Screen ── */
+    function LoginScreen({ onLogin, error }) {
+      useEffect(() => {
+        if (window.google) {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: onLogin,
+          });
+          window.google.accounts.id.renderButton(
+            document.getElementById("g_signin"),
+            { theme: "filled_black", size: "large", width: 280, text: "continue_with" }
+          );
+        }
+      }, []);
+
+      return (
+        <div style={{background:D.bg,minHeight:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,-apple-system,sans-serif",color:D.text,padding:"2rem"}}>
+          <div style={{width:72,height:72,borderRadius:22,background:`linear-gradient(135deg,${D.lime},${D.limeDark})`,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:`0 0 40px ${D.lime}55`,marginBottom:20}}>
+            <i className="ti ti-bolt" style={{fontSize:38,color:D.bg}}/>
+          </div>
+          <div style={{fontSize:30,fontWeight:800,letterSpacing:-1,marginBottom:4}}>OURYFIT</div>
+          <div style={{fontSize:14,color:D.dim,marginBottom:40}}>Tu plan, hecho a tu medida</div>
+
+          {error === "acceso_denegado" && (
+            <div style={{background:"#2a0f0f",border:`1px solid ${D.rose}44`,borderRadius:14,padding:"12px 18px",marginBottom:20,fontSize:13,color:D.rose,textAlign:"center",maxWidth:300}}>
+              Este email no tiene acceso a OuryFit.
+            </div>
+          )}
+
+          <div style={{background:D.card,border:`1px solid ${D.line}`,borderRadius:20,padding:28,textAlign:"center",maxWidth:320,width:"100%"}}>
+            <div style={{fontSize:15,fontWeight:600,color:D.text,marginBottom:6}}>Entra con tu cuenta Google</div>
+            <div style={{fontSize:13,color:D.dim,marginBottom:24}}>Tus datos se guardan en la nube y están disponibles en cualquier dispositivo.</div>
+            <div id="g_signin" style={{display:"flex",justifyContent:"center"}}/>
+          </div>
+        </div>
+      );
+    }
       const hk=hoyKey(),hoy=nombreDia();
       const entrHoy=data.registros[hk];
       const cm=data.comidas[hk]||{cal:0,prot:0,carbs:0,grasa:0};
@@ -841,24 +973,45 @@
     }
 
     function App() {
-      const {data,save,loaded}=useStore();
-      const [view,setView]=useState("home");
+      const { data, save, loaded, email, handleGoogleLogin, logout, authError, syncing } = useStore();
+      const [view, setView] = useState("home");
 
-      if(!loaded)return(
+      // Show login if not authenticated
+      if (!email) return <LoginScreen onLogin={handleGoogleLogin} error={authError} />;
+
+      // Show loading while fetching from Sheets
+      if (!loaded) return (
         <div style={{background:D.bg,height:"100dvh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:14,fontFamily:"system-ui,-apple-system,sans-serif"}}>
           <div style={{width:36,height:36,border:`3px solid ${D.line}`,borderTopColor:D.lime,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
-          <div style={{color:D.faint,fontSize:13}}>Cargando OuryFit...</div>
+          <div style={{color:D.faint,fontSize:13}}>Cargando tus datos...</div>
           <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       );
-      if(!data.profile.setup)return <Setup data={data} save={save}/>;
 
-      function reset(){if(!window.confirm("¿Resetear todo?"))return;localStorage.removeItem(KEY);window.location.reload();}
+      if (!data.profile.setup) return <Setup data={data} save={save} />;
 
-      const tabs=[{id:"home",l:"Inicio",icon:"ti-home"},{id:"entreno",l:"Gym",icon:"ti-barbell"},{id:"comidas",l:"Comer",icon:"ti-salad"},{id:"progreso",l:"Progreso",icon:"ti-chart-line"}];
+      function reset() {
+        if (!window.confirm("¿Resetear todo?")) return;
+        localStorage.removeItem(KEY);
+        logout();
+      }
+
+      const tabs = [
+        {id:"home",l:"Inicio",icon:"ti-home"},
+        {id:"entreno",l:"Gym",icon:"ti-barbell"},
+        {id:"comidas",l:"Comer",icon:"ti-salad"},
+        {id:"progreso",l:"Progreso",icon:"ti-chart-line"},
+      ];
 
       return (
         <div style={{background:D.bg,fontFamily:"system-ui,-apple-system,sans-serif",color:D.text,minHeight:"100dvh"}}>
+          {/* Sync indicator */}
+          {syncing && (
+            <div style={{position:"fixed",top:10,right:10,zIndex:100,background:D.card,border:`1px solid ${D.line}`,borderRadius:10,padding:"6px 12px",fontSize:11,color:D.dim,display:"flex",alignItems:"center",gap:6}}>
+              <div style={{width:8,height:8,borderRadius:"50%",background:D.lime,animation:"spin 1s linear infinite"}}/>
+              Guardando...
+            </div>
+          )}
           <div style={{maxWidth:460,margin:"0 auto",paddingBottom:90}}>
             {view==="home"&&<Dashboard data={data} setView={setView}/>}
             {view==="entreno"&&<Entreno data={data} save={save} setView={setView}/>}
@@ -873,11 +1026,13 @@
                 <span style={{fontSize:9,fontWeight:700,color:a?D.bg:D.faint,letterSpacing:0.3}}>{t.l}</span>
               </button>
             );})}
-            <button onClick={reset} style={{width:48,padding:"10px 4px",background:"transparent",border:"none",borderRadius:14,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-              <i className="ti ti-refresh" style={{fontSize:19,color:D.faint}}/>
-              <span style={{fontSize:9,fontWeight:700,color:D.faint}}>Reset</span>
+            <button onClick={logout} title="Cerrar sesión"
+              style={{width:48,padding:"10px 4px",background:"transparent",border:"none",borderRadius:14,cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
+              <i className="ti ti-logout" style={{fontSize:19,color:D.faint}}/>
+              <span style={{fontSize:9,fontWeight:700,color:D.faint}}>Salir</span>
             </button>
           </div>
+          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
       );
     }
