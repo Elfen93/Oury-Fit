@@ -380,17 +380,27 @@
 
     /* ── Login Screen ── */
     function LoginScreen({ onLogin, error }) {
+      const [googleReady, setGoogleReady] = useState(false);
+
       useEffect(() => {
-        if (window.google) {
-          window.google.accounts.id.initialize({
-            client_id: GOOGLE_CLIENT_ID,
-            callback: onLogin,
-          });
-          window.google.accounts.id.renderButton(
-            document.getElementById("g_signin"),
-            { theme: "filled_black", size: "large", width: 280, text: "continue_with" }
-          );
+        let tries = 0;
+        function tryInit() {
+          tries++;
+          if (window.google && window.google.accounts) {
+            window.google.accounts.id.initialize({
+              client_id: GOOGLE_CLIENT_ID,
+              callback: onLogin,
+            });
+            window.google.accounts.id.renderButton(
+              document.getElementById("g_signin"),
+              { theme: "filled_black", size: "large", width: 280, text: "continue_with" }
+            );
+            setGoogleReady(true);
+          } else if (tries < 20) {
+            setTimeout(tryInit, 300);
+          }
         }
+        setTimeout(tryInit, 300);
       }, []);
 
       return (
@@ -410,7 +420,14 @@
           <div style={{background:D.card,border:`1px solid ${D.line}`,borderRadius:20,padding:28,textAlign:"center",maxWidth:320,width:"100%"}}>
             <div style={{fontSize:15,fontWeight:600,color:D.text,marginBottom:6}}>Entra con tu cuenta Google</div>
             <div style={{fontSize:13,color:D.dim,marginBottom:24}}>Tus datos se guardan en la nube y están disponibles en cualquier dispositivo.</div>
-            <div id="g_signin" style={{display:"flex",justifyContent:"center"}}/>
+            <div id="g_signin" style={{display:"flex",justifyContent:"center",minHeight:44}}>
+              {!googleReady && (
+                <div style={{display:"flex",alignItems:"center",gap:8,color:D.faint,fontSize:13}}>
+                  <div style={{width:16,height:16,border:`2px solid ${D.line}`,borderTopColor:D.lime,borderRadius:"50%",animation:"spin 0.8s linear infinite"}}/>
+                  Cargando...
+                </div>
+              )}
+            </div>
           </div>
         </div>
       );
