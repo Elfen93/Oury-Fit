@@ -79,11 +79,9 @@
     import htm from 'https://esm.sh/htm@3.1.1';
     const html = htm.bind(h);
 
-    // ── STREAMING_CHUNK: Defining configurations and sheet keys ──
     const KEY = "OuryFitV12";
     const SESSION_KEY = "ouryfit_session";
-    const DIETA_DB_KEY = "OuryFit_Diet_Library"; // Base de datos alternativa para la dieta
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxyAAe95WBmYWf5q_sIlUV3e04AYCq3UwatWd9_r0LQ_x-5FponzKI_QgyEBJtZz6lc5w/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycby2MVp5us_qC2b8tcO9tToz1EGP4408yVnCqpN2G6BmfuWQQnQ2zkQacMDnc5oJo5IQuw/exec";
     const CLIENT_ID = "362581552628-qroeqtmtj5sfvd3o15fp0o0ueitdu0av.apps.googleusercontent.com";
 
     const D = {
@@ -103,7 +101,6 @@
       rose: "#fb7185",
     };
 
-    // ── STREAMING_CHUNK: Balancing training program (Empuje corregido) ──
     const DEFAULT_RUTINA = [
       {
         id: "r1",
@@ -113,8 +110,8 @@
         icon: "ti-barbell",
         acento: D.lime,
         ejercicios: [
-          { nombre: "Press banca plano barra", series: 4, reps: "8-10", descanso: 90, notes: "Baja controlado en 3s, tensión constante" },
-          { nombre: "Press inclinado con mancuernas", series: 3, reps: "10-12", descanso: 75, notes: "Codos a 45 grados, enfoque clavicular limpio" },
+          { nombre: "Press banca plano barra", series: 4, reps: "8-10", descanso: 90, notas: "Baja controlado en 3s, tensión constante" },
+          { nombre: "Press inclinado con mancuernas", series: 3, reps: "10-12", descanso: 75, notas: "Codos a 45 grados, enfoque clavicular limpio" },
           { nombre: "Fondos en paralelas (Dips)", series: 3, reps: "8-12", descanso: 90, notas: "Excelente constructor de pectoral inferior usando tu peso corporal" },
           { nombre: "Elevaciones laterales con mancuernas", series: 4, reps: "12-15", descanso: 60, notas: "Abducción pura, sin balanceo de cadera" },
           { nombre: "Press Francés (barra o mancuernas)", series: 3, reps: "10-12", descanso: 60, notas: "Aislamiento de tríceps, mantén codos fijos al techo" }
@@ -168,17 +165,17 @@
     ];
 
     const DEFAULT_ALIMENTOS = [
-      { n: "Pechuga de pollo", g: "100g", cal: 165, p: 31, c: 0, gr: 4 },
-      { n: "Arroz blanco cocido", g: "100g", cal: 130, p: 2.7, c: 28, gr: 0.3 },
-      { n: "Huevo entero", g: "1 ud", cal: 78, p: 6, c: 0.6, gr: 5 },
-      { n: "Avena", g: "50g", cal: 190, p: 6.5, c: 33, gr: 3.5 },
-      { n: "Plátano", g: "1 ud", cal: 105, p: 1.3, c: 27, gr: 0.4 },
-      { n: "Atún en lata", g: "100g", cal: 116, p: 26, c: 0, gr: 1 },
-      { n: "Batido de proteína", g: "1 scoop", cal: 120, p: 24, c: 3, gr: 1.5 },
-      { n: "Pasta cocida", g: "100g", cal: 158, p: 5.8, c: 31, gr: 0.9 },
-      { n: "Leche entera", g: "250ml", cal: 150, p: 8, c: 12, gr: 8 },
-      { n: "Aguacate", g: "1/2 ud", cal: 160, p: 2, c: 9, gr: 15 },
-      { n: "Crema de cacahuete", g: "30g", cal: 188, p: 8, c: 6, gr: 16 }
+      { n: "Pechuga de pollo", g: "100g", cal: 165, p: 31, c: 0, gr: 4, cat: "Comida" },
+      { n: "Arroz blanco cocido", g: "100g", cal: 130, p: 2.7, c: 28, gr: 0.3, cat: "Comida" },
+      { n: "Huevo entero", g: "1 ud", cal: 78, p: 6, c: 0.6, gr: 5, cat: "Desayuno" },
+      { n: "Avena", g: "50g", cal: 190, p: 6.5, c: 33, gr: 3.5, cat: "Desayuno" },
+      { n: "Plátano", g: "1 ud", cal: 105, p: 1.3, c: 27, gr: 0.4, cat: "Snack" },
+      { n: "Atún en lata", g: "100g", cal: 116, p: 26, c: 0, gr: 1, cat: "Cena" },
+      { n: "Batido de proteína", g: "1 scoop", cal: 120, p: 24, c: 3, gr: 1.5, cat: "Suplemento" },
+      { n: "Pasta cocida", g: "100g", cal: 158, p: 5.8, c: 31, gr: 0.9, cat: "Comida" },
+      { n: "Leche entera", g: "250ml", cal: 150, p: 8, c: 12, gr: 8, cat: "Desayuno" },
+      { n: "Aguacate", g: "1/2 ud", cal: 160, p: 2, c: 9, gr: 15, cat: "Cena" },
+      { n: "Crema de cacahuete", g: "30g", cal: 188, p: 8, c: 6, gr: 16, cat: "Snack" }
     ];
 
     const FRASES = [
@@ -198,7 +195,6 @@
       customFoods: []
     };
 
-    // ── STREAMING_CHUNK: Sheets API original integration ──
     async function sheetLoad(email) {
       const r = await fetch(`${SCRIPT_URL}?action=load&email=${encodeURIComponent(email)}`);
       const json = await r.json();
@@ -255,7 +251,6 @@
       };
     }
 
-    // ── STREAMING_CHUNK: Local session helpers ──
     function loadSession(hk) {
       try {
         const r = localStorage.getItem(SESSION_KEY);
@@ -288,7 +283,6 @@
       } catch {}
     };
 
-    // ── STREAMING_CHUNK: Main Store Hook ──
     function useStore() {
       const [data, setData] = useState(defaultData);
       const [loaded, setLoaded] = useState(false);
@@ -299,7 +293,6 @@
 
       useEffect(() => {
         if (!email) {
-          // Si no hay email, cargar desde localStorage local
           const local = localStorage.getItem(KEY);
           if (local) setData({ ...defaultData, ...JSON.parse(local) });
           setLoaded(true);
@@ -362,7 +355,6 @@
       return { data, save, loaded, email, handleGoogleLogin, logout, authError, syncing, customFoods: data.customFoods || [], addCustomFood, removeCustomFood };
     }
 
-    // ── STREAMING_CHUNK: Component Definitions ──
     function Ring({ pct, size = 130, stroke = 10, color = D.lime }) {
       const r = (size - stroke) / 2, circ = 2 * Math.PI * r, off = circ - (Math.min(100, pct) / 100) * circ;
       return html`<svg width=${size} height=${size} style="transform:rotate(-90deg);filter:drop-shadow(0 0 8px ${color}33)">
@@ -383,7 +375,6 @@
       return html`<div style="width:${size}px;height:${size}px;border:3px solid ${D.line};border-top-color:${color};border-radius:50%;animation:spin 0.8s linear infinite"/>`;
     }
 
-    // ── STREAMING_CHUNK: Login Screen Component ──
     function LoginScreen({ onLogin, error }) {
       const [ready, setReady] = useState(false);
 
@@ -420,18 +411,16 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Dashboard Component with 7-Day Cycle ──
-    function Dashboard({ data, save, setView, customFoods }) {
+    function Dashboard({ data, save, setView }) {
       const hk = hoyKey();
       const entrHoy = data.registros[hk];
-      const cm = data.comidas[hk] || { cal: 0, prot: 0, carbs: 0, grasa: 0 };
+      const cm = data.comidas[hk] || { cal: 0, prot: 0, carbs: 0, grasa: 0, list: [] };
       const aguaHoy = data.agua[hk] || 0;
       const frase = FRASES[new Date().getDate() % FRASES.length];
 
       const calPct = Math.round((cm.cal / data.metas.calorias) * 100);
       const restante = Math.max(0, data.metas.calorias - Math.round(cm.cal));
 
-      // Obtenemos la rutina asignada para el día activo del microciclo (0-6)
       const diaActivoIndice = data.diaCicloActivo ?? 0;
       const rutinaIdAsignada = data.ciclo[diaActivoIndice];
       const rutinaAsignadaObj = rutinaIdAsignada !== "descanso" ? data.rutinas.find(r => r.id === rutinaIdAsignada) : null;
@@ -451,7 +440,7 @@
         <div class="fade flex justify-between items-start">
           <div>
             <div style="font-size:13px;color:${D.dim}">Hola, Oury</div>
-            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm"></span></div>
+            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm">V8 Sheets</span></div>
           </div>
           <div style="display:flex;align-items:center;gap:7px;background:${D.card};border:1px solid ${D.line};border-radius:14px;padding:9px 14px">
             <i class="ti ti-flame" style="font-size:20px;color:${D.amber}"/>
@@ -530,7 +519,6 @@
           </div>
         </div>
 
-        <!-- Hidratación y peso rápido -->
         <div class="grid grid-cols-2 gap-4">
           <div class="press" onClick=${() => setView("comidas")} style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:16px;cursor:pointer">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -553,7 +541,7 @@
           </div>
         </div>
 
-        <!-- Microciclo interactivo de 7 Días (Asignar y Mover Descansos o Rutinas) -->
+        <!-- Microciclo interactivo de 7 Días -->
         <div class="fade" style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:20px">
           <div style="font-size:11px;color:${D.faint};text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px">Cronograma del Ciclo de 7 Días</div>
           <p class="text-xs text-[#8a8a9a] mb-4">Reorganiza qué días entrenas y qué días descansas seleccionando en la lista:</p>
@@ -566,7 +554,6 @@
 
               return html`<div style="display:flex;align-items:center;justify-content:between;padding:10px 0;border-bottom:${idx !== 6 ? `1px solid ${D.line}` : "none"}" key=${dia}>
                 <div style="display:flex;align-items:center;gap:12px;flex:1">
-                  <!-- Botón para fijar día activo del ciclo de forma manual -->
                   <button onClick=${() => setDiaActivoManual(idx)}
                     style="width:34px;height:34px;border-radius:10px;background:${isHoy ? D.lime : D.surface};border:1px solid ${isHoy ? D.lime : D.line};color:${isHoy ? D.bg : D.dim};font-weight:bold;font-size:11px;display:flex;align-items:center;justify-content:center"
                     title="Marcar como día de hoy en el ciclo">
@@ -580,7 +567,6 @@
                   </div>
                 </div>
 
-                <!-- Selector de rutina para mover libremente los entrenos -->
                 <div>
                   <select value=${rId} onChange=${(e) => cambiarAsignacionDia(idx, e.target.value)}
                     style="background:${D.surface};border:1px solid ${D.line};font-size:12px;padding:4px 8px;border-radius:8px;color:${D.text}">
@@ -595,9 +581,8 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Routine editor and planner ──
     function Rutinas({ data, save }) {
-      const [editMode, setEditMode] = useState(null); // id de la rutina en edicion
+      const [editMode, setEditMode] = useState(null);
 
       const handleModificarEjercicio = (rutinaId, ejIdx, campo, valor) => {
         const actualizadas = data.rutinas.map(r => {
@@ -719,24 +704,39 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Diet and Food registration ──
     function Comidas({ data, save, customFoods, addCustomFood, removeCustomFood }) {
       const hk = hoyKey();
       const comidasHoy = data.comidas[hk]?.list || [];
-      const [manual, setManual] = useState({ n: "", cal: "", p: "", c: "", gr: "" });
+      const [manual, setManual] = useState({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: "Desayuno" });
+      const [activeCategoryFilter, setActiveCategoryFilter] = useState("Todos");
+
+      const CATEGORIAS = ["Desayuno", "Comida", "Cena", "Snack", "Suplemento"];
 
       const registrarAlimento = (food) => {
         const hLog = data.comidas[hk] || { cal: 0, prot: 0, carbs: 0, grasa: 0, list: [] };
-        const newList = [...hLog.list, { ...food, id: Date.now().toString() }];
         
-        // Recalcular totales diarios
+        // El nuevo Apps Script mapea perfectamente 'p', 'c', 'gr' en su desglose individual
+        const cleanFoodItem = {
+          id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+          n: food.n || "Alimento",
+          g: food.g || "1 ración",
+          cal: parseInt(food.cal) || 0,
+          p: parseInt(food.p) || 0,
+          c: parseInt(food.c) || 0,
+          gr: parseInt(food.gr) || 0,
+          cat: food.cat || "Desayuno"
+        };
+
+        const newList = [...hLog.list, cleanFoodItem];
+        
+        // Sumar todos los valores para el acumulado diario
         const tot = newList.reduce((acc, x) => {
           acc.cal += x.cal;
-          acc.p += x.p;
-          acc.c += x.c;
-          acc.gr += x.gr;
+          acc.prot += x.p;
+          acc.carbs += x.c;
+          acc.grasa += x.gr;
           return acc;
-        }, { cal: 0, p: 0, c: 0, gr: 0 });
+        }, { cal: 0, prot: 0, carbs: 0, grasa: 0 });
 
         save({
           ...data,
@@ -753,11 +753,11 @@
         
         const tot = newList.reduce((acc, x) => {
           acc.cal += x.cal;
-          acc.p += x.p;
-          acc.c += x.c;
-          acc.gr += x.gr;
+          acc.prot += x.p;
+          acc.carbs += x.c;
+          acc.grasa += x.gr;
           return acc;
-        }, { cal: 0, p: 0, c: 0, gr: 0 });
+        }, { cal: 0, prot: 0, carbs: 0, grasa: 0 });
 
         save({
           ...data,
@@ -772,28 +772,62 @@
         if (!manual.n || !manual.cal) return;
         const foodItem = {
           n: manual.n,
-          g: "1 ración",
+          g: manual.g || "1 ración",
           cal: parseInt(manual.cal) || 0,
           p: parseInt(manual.p) || 0,
           c: parseInt(manual.c) || 0,
-          gr: parseInt(manual.gr) || 0
+          gr: parseInt(manual.gr) || 0,
+          cat: manual.cat
         };
         addCustomFood(foodItem);
-        setManual({ n: "", cal: "", p: "", c: "", gr: "" });
+        setManual({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: manual.cat });
       };
+
+      // Agrupar o filtrar alimentos consumidos hoy por categoría
+      const filtrados = activeCategoryFilter === "Todos" 
+        ? comidasHoy 
+        : comidasHoy.filter(x => x.cat === activeCategoryFilter);
+
+      // Calcular sumas parciales para el filtro actual
+      const parciales = filtrados.reduce((acc, item) => {
+        acc.cal += item.cal;
+        acc.p += item.p;
+        acc.c += item.c;
+        acc.gr += item.gr;
+        return acc;
+      }, { cal: 0, p: 0, c: 0, gr: 0 });
 
       return html`<div class="p-4 space-y-6">
         <div>
           <h2 style="font-size:26px;font-weight:900;color:${D.text}">Registro de Dieta</h2>
-          <p style="font-size:13px;color:${D.dim}">Sincronizado con Sheets. Biblioteca de alimentos alternativa local.</p>
+          <p style="font-size:13px;color:${D.dim}">Tus comidas se guardan en filas individuales en Sheets.</p>
         </div>
 
-        <!-- Formulario Manual & Guardar en Base de Datos alternativa -->
+        <!-- Formulario Manual & Guardar en Base de Datos -->
         <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:18px" class="space-y-4">
           <h3 style="font-size:14px;font-weight:700;color:${D.text}">Añadir / Guardar Alimento</h3>
+          
+          <!-- Pill selector de categorías para el nuevo plato -->
+          <div>
+            <label style="font-size:11px;color:${D.dim};display:block;margin-bottom:6px">Categoría de comida</label>
+            <div class="flex flex-wrap gap-2">
+              ${CATEGORIAS.map(cat => {
+                const active = manual.cat === cat;
+                return html`<button onClick=${() => setManual({ ...manual, cat })}
+                  style="font-size:12px;padding:6px 12px;border-radius:10px;font-weight:600;border:1px solid ${active ? D.lime : D.line};background:${active ? D.lime + "15" : D.surface};color:${active ? D.lime : D.dim}"
+                  key=${cat}>
+                  ${cat}
+                </button>`;
+              })}
+            </div>
+          </div>
+
           <div class="grid grid-cols-2 gap-3">
             <div class="col-span-2">
-              <input type="text" placeholder="Nombre" value=${manual.n} onInput=${(e) => setManual({ ...manual, n: e.target.value })} style="width:100%"/>
+              <input type="text" placeholder="Nombre (Ej: Huevos revueltos)" value=${manual.n} onInput=${(e) => setManual({ ...manual, n: e.target.value })} style="width:100%"/>
+            </div>
+            <div class="col-span-2">
+              <input type="text" placeholder="Ración/Porción (Ej: 2 unidades, 150g)" value=${manual.g} onInput=${(e) => setManual({ ...manual, g: e.target.value })} style="width:100%"/>
             </div>
             <div>
               <input type="number" placeholder="Kcal" value=${manual.cal} onInput=${(e) => setManual({ ...manual, cal: e.target.value })} style="width:100%"/>
@@ -813,13 +847,14 @@
               if (!manual.n || !manual.cal) return;
               registrarAlimento({
                 n: manual.n,
-                g: "1 ración",
+                g: manual.g || "1 ración",
                 cal: parseInt(manual.cal) || 0,
                 p: parseInt(manual.p) || 0,
                 c: parseInt(manual.c) || 0,
-                gr: parseInt(manual.gr) || 0
+                gr: parseInt(manual.gr) || 0,
+                cat: manual.cat
               });
-              setManual({ n: "", cal: "", p: "", c: "", gr: "" });
+              setManual({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: manual.cat });
             }} style="flex:1;background:${D.lime};color:${D.bg};font-weight:700;padding:12px;border-radius:12px;font-size:13px" class="press">
               Registrar Hoy
             </button>
@@ -829,14 +864,32 @@
           </div>
         </div>
 
-        <!-- Alimentos consumidos hoy -->
-        <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:18px" class="space-y-3">
-          <h3 style="font-size:14px;font-weight:700;color:${D.text}">Consumido Hoy</h3>
-          ${comidasHoy.length === 0 ? html`<p style="font-size:13px;color:${D.faint};text-align:center;padding:12px">No has registrado alimentos hoy.</p>` : comidasHoy.map(c => {
-            return html`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${D.line};padding:8px 0;last:border-0" key=${c.id}>
+        <!-- Desglose interactivo por categorías de comidasHoy -->
+        <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:18px" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 style="font-size:14px;font-weight:700;color:${D.text}">Consumido Hoy</h3>
+            
+            <!-- Selector para filtrar lista de hoy -->
+            <select value=${activeCategoryFilter} onChange=${(e) => setActiveCategoryFilter(e.target.value)}
+              style="background:${D.surface};border:1px solid ${D.line};font-size:11px;padding:4px 8px;border-radius:8px;color:${D.text}">
+              <option value="Todos">Ver todo</option>
+              ${CATEGORIAS.map(c => html`<option value=${c} key=${c}>${c}</option>`)}
+            </select>
+          </div>
+
+          <!-- Si mostramos por filtro, enseñamos un subtotal parcial -->
+          ${activeCategoryFilter !== "Todos" && html`<div style="font-size:12px;background:${D.surface};padding:8px 12px;border-radius:10px;border:1px solid ${D.line}" class="text-slate-400">
+            Parcial ${activeCategoryFilter}: <span class="text-white font-bold">${parciales.cal} kcal</span> · P: ${parciales.p}g · C: ${parciales.c}g · G: ${parciales.gr}g
+          </div>`}
+
+          ${filtrados.length === 0 ? html`<p style="font-size:13px;color:${D.faint};text-align:center;padding:12px">No hay registros hoy para este filtro.</p>` : filtrados.map(c => {
+            return html`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${D.line};padding:10px 0;last:border-0" key=${c.id}>
               <div>
-                <p style="font-size:14px;font-weight:700">${c.n}</p>
-                <p style="font-size:11px;color:${D.dim}">P: ${c.p}g · C: ${c.c}g · G: ${c.gr}g · ${c.cal} kcal</p>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <span style="font-size:9px;background:${D.surface};border:1px solid ${D.line};color:${D.lime};padding:1px 6px;border-radius:6px;font-weight:bold;text-transform:uppercase">${c.cat}</span>
+                  <p style="font-size:14px;font-weight:700">${c.n}</p>
+                </div>
+                <p style="font-size:11px;color:${D.dim};margin-top:2px">${c.g} · P: ${c.p}g · C: ${c.c}g · G: ${c.gr}g · ${c.cal} kcal</p>
               </div>
               <button onClick=${() => borrarAlimentoLog(c.id)} style="color:${D.rose};padding:6px">
                 <i class="ti ti-x"></i>
@@ -845,18 +898,21 @@
           })}
         </div>
 
-        <!-- Biblioteca alternativa de alimentos -->
+        <!-- Biblioteca personalizada (vía Sheets) -->
         <div class="space-y-3">
           <h3 style="font-size:14px;font-weight:700;color:${D.text}">Tu Biblioteca de Alimentos</h3>
           <div class="space-y-2">
-            ${customFoods.length === 0 ? html`<p style="font-size:12px;color:${D.faint}">Sin alimentos guardados en la biblioteca de dieta.</p>` : customFoods.map((f, idx) => {
+            ${customFoods.length === 0 ? html`<p style="font-size:12px;color:${D.faint}">Sin alimentos guardados en la biblioteca. Usa "Guardar biblioteca" para añadir.</p>` : customFoods.map((f, idx) => {
               return html`<div style="background:${D.card};border:1px solid ${D.line};border-radius:16px;padding:12px;display:flex;justify-content:space-between;align-items:center" key=${idx}>
                 <div>
-                  <p style="font-size:13px;font-weight:700">${f.n}</p>
-                  <p style="font-size:11px;color:${D.dim}">${f.cal} kcal · P: ${f.p}g · C: ${f.c}g · G: ${f.gr}g</p>
+                  <div class="flex items-center gap-2">
+                    <span style="font-size:8px;background:${D.surface};border:1px solid ${D.line};color:${D.cyan};padding:1px 4px;border-radius:4px;font-weight:bold;text-transform:uppercase">${f.cat || "Otros"}</span>
+                    <p style="font-size:13px;font-weight:700">${f.n}</p>
+                  </div>
+                  <p style="font-size:11px;color:${D.dim};margin-top:2px">${f.g} · ${f.cal} kcal · P: ${f.p}g · C: ${f.c}g · G: ${f.gr}g</p>
                 </div>
                 <div class="flex gap-2">
-                  <button onClick=${() => registrarAlimento(f)} style="background:${D.lime}15;color:${D.lime};font-weight:bold;font-size:11px;padding:6px 12px;border-radius:8px">
+                  <button onClick=${() => registrarAlimento(f)} style="background:${D.lime}15;color:${D.lime};font-weight:bold;font-size:11px;padding:6px 12px;border-radius:8px" class="press">
                     Añadir
                   </button>
                   <button onClick=${() => removeCustomFood(idx)} style="color:${D.rose};padding:4px">
@@ -868,17 +924,20 @@
           </div>
         </div>
 
-        <!-- Alimentos por defecto -->
+        <!-- Alimentos por defecto sugeridos -->
         <div class="space-y-3">
           <h3 style="font-size:14px;font-weight:700;color:${D.text}">Alimentos Sugeridos</h3>
           <div class="space-y-2">
             ${DEFAULT_ALIMENTOS.map(f => {
               return html`<div style="background:${D.card};border:1px solid ${D.line};border-radius:16px;padding:12px;display:flex;justify-content:space-between;align-items:center" key=${f.n}>
                 <div>
-                  <p style="font-size:13px;font-weight:700">${f.n} <span style="font-size:10px;color:${D.dim}">(${f.g})</span></p>
-                  <p style="font-size:11px;color:${D.dim}">${f.cal} kcal · P: ${f.p}g · C: ${f.c}g · G: ${f.gr}g</p>
+                  <div class="flex items-center gap-2">
+                    <span style="font-size:8px;background:${D.surface};border:1px solid ${D.line};color:${D.violet};padding:1px 4px;border-radius:4px;font-weight:bold;text-transform:uppercase">${f.cat}</span>
+                    <p style="font-size:13px;font-weight:700">${f.n} <span style="font-size:10px;color:${D.dim}">(${f.g})</span></p>
+                  </div>
+                  <p style="font-size:11px;color:${D.dim};margin-top:2px">${f.cal} kcal · P: ${f.p}g · C: ${f.c}g · G: ${f.gr}g</p>
                 </div>
-                <button onClick=${() => registrarAlimento(f)} style="background:${D.lime}15;color:${D.lime};font-weight:bold;font-size:11px;padding:6px 12px;border-radius:8px">
+                <button onClick=${() => registrarAlimento(f)} style="background:${D.lime}15;color:${D.lime};font-weight:bold;font-size:11px;padding:6px 12px;border-radius:8px" class="press">
                   Añadir
                 </button>
               </div>`;
@@ -888,7 +947,6 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Training session tracker ──
     function Entreno({ data, save, setView }) {
       const hoy = hoyKey();
       const diaActivoIndice = data.diaCicloActivo ?? 0;
@@ -931,7 +989,6 @@
         };
 
         const nuevosRegistros = { ...data.registros, [hoy]: entLog };
-        // Avanzamos automáticamente al siguiente día del ciclo de 7 días
         const siguienteDia = (diaActivoIndice + 1) % 7;
 
         save({
@@ -971,14 +1028,12 @@
                 </div>
               </div>
 
-              <!-- Registro rápido de pesos de serie -->
               <div style="display:flex;gap:8px;margin-bottom:12px">
                 <input type="text" placeholder="Peso usado (Ej: 20kg)" value=${pesos[ejIdx] || ""}
                   onInput=${(e) => setPesos({ ...pesos, [ejIdx]: e.target.value })}
                   style="flex:1;font-size:13px;padding:6px 10px;border-radius:8px"/>
               </div>
 
-              <!-- Selector de series completadas -->
               <div class="grid grid-cols-5 gap-2">
                 ${Array.from({ length: ej.series }).map((_, sIdx) => {
                   const done = arr[sIdx];
@@ -998,7 +1053,6 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Descanso timer inside training ──
     function Timer({ segundos, onDone, color }) {
       const [t, setT] = useState(segundos);
       const [run, setRun] = useState(true);
@@ -1036,7 +1090,6 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Progress and goals chart ──
     function Progreso({ data, save }) {
       const hk = hoyKey();
       const [nuevoPeso, setNuevoPeso] = useState("");
@@ -1085,7 +1138,6 @@
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Setup / Goals configuration view ──
     function Ajustes({ data, save, logout, customFoods, email, syncing }) {
       return html`<div class="p-4 space-y-6">
         <div>
@@ -1163,15 +1215,14 @@ ${JSON.stringify({
       </div>`;
     }
 
-    // ── STREAMING_CHUNK: Main App Wrapper with routing ──
     function App() {
       const { data, save, loaded, email, handleGoogleLogin, logout, authError, syncing, customFoods, addCustomFood, removeCustomFood } = useStore();
-      const [view, setView] = useState("dashboard"); // dashboard, rutinas, comidas, progreso, ajustes, entreno
+      const [view, setView] = useState("dashboard");
 
       if (!loaded) {
         return html`<div class="h-screen flex flex-col items-center justify-center gap-4 bg-[#0a0a0f] text-[#f4f4f7]">
           <${Spinner} size=${36}/>
-          <div style="color:${D.dim};font-size:13px">Bienvenido de vuelta...</div>
+          <div style="color:${D.dim};font-size:13px">Cargando base de datos OuryFit...</div>
         </div>`;
       }
 
@@ -1181,7 +1232,6 @@ ${JSON.stringify({
 
       return html`<div style="min-height:100vh;background-color:${D.bg};color:${D.text};display:flex;flex-direction:column;max-width:480px;margin:0 auto;border-left:1px solid ${D.line};border-right:1px solid ${D.line};padding-bottom:80px">
         
-        <!-- Header status bar -->
         <header style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid ${D.line};background:${D.bg}">
           <div style="display:flex;align-items:center;gap:8px">
             <div style="width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,${D.lime},${D.limeDark});display:flex;align-items:center;justify-content:center">
@@ -1196,7 +1246,7 @@ ${JSON.stringify({
         </header>
 
         <main class="flex-grow">
-          ${view === "dashboard" && html`<${Dashboard} data=${data} save=${save} setView=${setView} customFoods=${customFoods}/>`}
+          ${view === "dashboard" && html`<${Dashboard} data=${data} save=${save} setView=${setView}/>`}
           ${view === "rutinas" && html`<${Rutinas} data=${data} save=${save}/>`}
           ${view === "comidas" && html`<${Comidas} data=${data} save=${save} customFoods=${customFoods} addCustomFood=${addCustomFood} removeCustomFood=${removeCustomFood}/>`}
           ${view === "progreso" && html`<${Progreso} data=${data} save=${save}/>`}
@@ -1204,7 +1254,6 @@ ${JSON.stringify({
           ${view === "entreno" && html`<${Entreno} data=${data} save=${save} setView=${setView}/>`}
         </main>
 
-        <!-- Navigation bar -->
         <nav style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:${D.bg}EE;backdrop-filter:blur(10px);border-top:1px solid ${D.line};display:flex;justify-content:space-around;padding:10px 0;z-index:40">
           ${[
             { id: "dashboard", label: "Inicio", icon: "ti-smart-home" },
