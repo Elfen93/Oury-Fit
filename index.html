@@ -440,7 +440,7 @@
         <div class="fade flex justify-between items-start">
           <div>
             <div style="font-size:13px;color:${D.dim}">Hola, Oury</div>
-            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm">V8 Sheets</span></div>
+            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm font-semibold">Sheets</span></div>
           </div>
           <div style="display:flex;align-items:center;gap:7px;background:${D.card};border:1px solid ${D.line};border-radius:14px;padding:9px 14px">
             <i class="ti ti-flame" style="font-size:20px;color:${D.amber}"/>
@@ -712,24 +712,32 @@
 
       const CATEGORIAS = ["Desayuno", "Comida", "Cena", "Snack", "Suplemento"];
 
+      // Helper robusto para análisis de números seguros y evitar fallas
+      const parseNum = (val) => {
+        if (val === undefined || val === null || val === "") return 0;
+        const parsed = Math.round(Number(val));
+        return isNaN(parsed) ? 0 : parsed;
+      };
+
       const registrarAlimento = (food) => {
+        if (!food) return;
         const hLog = data.comidas[hk] || { cal: 0, prot: 0, carbs: 0, grasa: 0, list: [] };
         
-        // El nuevo Apps Script mapea perfectamente 'p', 'c', 'gr' en su desglose individual
+        // Mapeo absoluto y limpio compatible con Sheets y alimentos predefinidos/manuales
         const cleanFoodItem = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
           n: food.n || "Alimento",
           g: food.g || "1 ración",
-          cal: parseInt(food.cal) || 0,
-          p: parseInt(food.p) || 0,
-          c: parseInt(food.c) || 0,
-          gr: parseInt(food.gr) || 0,
+          cal: parseNum(food.cal),
+          p: parseNum(food.p !== undefined ? food.p : food.prot),
+          c: parseNum(food.c !== undefined ? food.c : food.carbs),
+          gr: parseNum(food.gr !== undefined ? food.gr : food.grasa),
           cat: food.cat || "Desayuno"
         };
 
-        const newList = [...hLog.list, cleanFoodItem];
+        const newList = [...(hLog.list || []), cleanFoodItem];
         
-        // Sumar todos los valores para el acumulado diario
+        // Acumular macros diarios completos
         const tot = newList.reduce((acc, x) => {
           acc.cal += x.cal;
           acc.prot += x.p;
@@ -773,29 +781,28 @@
         const foodItem = {
           n: manual.n,
           g: manual.g || "1 ración",
-          cal: parseInt(manual.cal) || 0,
-          p: parseInt(manual.p) || 0,
-          c: parseInt(manual.c) || 0,
-          gr: parseInt(manual.gr) || 0,
+          cal: parseNum(manual.cal),
+          p: parseNum(manual.p),
+          c: parseNum(manual.c),
+          gr: parseNum(manual.gr),
           cat: manual.cat
         };
         addCustomFood(foodItem);
         setManual({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: manual.cat });
       };
 
-      // Agrupar o filtrar alimentos consumidos hoy por categoría
-      const filtrados = activeCategoryFilter === "Todos" 
-        ? comidasHoy 
-        : comidasHoy.filter(x => x.cat === activeCategoryFilter);
-
-      // Calcular sumas parciales para el filtro actual
-      const parciales = filtrados.reduce((acc, item) => {
-        acc.cal += item.cal;
-        acc.p += item.p;
-        acc.c += item.c;
-        acc.gr += item.gr;
+      // Agrupación profesional de comidas para visualización en tramos (Desayuno, Comida, etc.)
+      const comidasAgrupadas = CATEGORIAS.reduce((acc, cat) => {
+        const items = comidasHoy.filter(x => x.cat === cat);
+        if (items.length > 0) {
+          const totalCal = items.reduce((sum, item) => sum + (item.cal || 0), 0);
+          const totalProt = items.reduce((sum, item) => sum + (item.p || 0), 0);
+          const totalCarbs = items.reduce((sum, item) => sum + (item.c || 0), 0);
+          const totalGrasa = items.reduce((sum, item) => sum + (item.gr || 0), 0);
+          acc.push({ cat, items, totalCal, totalProt, totalCarbs, totalGrasa });
+        }
         return acc;
-      }, { cal: 0, p: 0, c: 0, gr: 0 });
+      }, []);
 
       return html`<div class="p-4 space-y-6">
         <div>
@@ -848,10 +855,10 @@
               registrarAlimento({
                 n: manual.n,
                 g: manual.g || "1 ración",
-                cal: parseInt(manual.cal) || 0,
-                p: parseInt(manual.p) || 0,
-                c: parseInt(manual.c) || 0,
-                gr: parseInt(manual.gr) || 0,
+                cal: manual.cal,
+                p: manual.p,
+                c: manual.c,
+                gr: manual.gr,
                 cat: manual.cat
               });
               setManual({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: manual.cat });
@@ -864,12 +871,10 @@
           </div>
         </div>
 
-        <!-- Desglose interactivo por categorías de comidasHoy -->
+        <!-- Desglose por tramos (Agrupado por categorías) -->
         <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:18px" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 style="font-size:14px;font-weight:700;color:${D.text}">Consumido Hoy</h3>
-            
-            <!-- Selector para filtrar lista de hoy -->
             <select value=${activeCategoryFilter} onChange=${(e) => setActiveCategoryFilter(e.target.value)}
               style="background:${D.surface};border:1px solid ${D.line};font-size:11px;padding:4px 8px;border-radius:8px;color:${D.text}">
               <option value="Todos">Ver todo</option>
@@ -877,25 +882,42 @@
             </select>
           </div>
 
-          <!-- Si mostramos por filtro, enseñamos un subtotal parcial -->
           ${activeCategoryFilter !== "Todos" && html`<div style="font-size:12px;background:${D.surface};padding:8px 12px;border-radius:10px;border:1px solid ${D.line}" class="text-slate-400">
             Parcial ${activeCategoryFilter}: <span class="text-white font-bold">${parciales.cal} kcal</span> · P: ${parciales.p}g · C: ${parciales.c}g · G: ${parciales.gr}g
           </div>`}
 
-          ${filtrados.length === 0 ? html`<p style="font-size:13px;color:${D.faint};text-align:center;padding:12px">No hay registros hoy para este filtro.</p>` : filtrados.map(c => {
-            return html`<div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid ${D.line};padding:10px 0;last:border-0" key=${c.id}>
-              <div>
-                <div style="display:flex;align-items:center;gap:6px">
-                  <span style="font-size:9px;background:${D.surface};border:1px solid ${D.line};color:${D.lime};padding:1px 6px;border-radius:6px;font-weight:bold;text-transform:uppercase">${c.cat}</span>
-                  <p style="font-size:14px;font-weight:700">${c.n}</p>
-                </div>
-                <p style="font-size:11px;color:${D.dim};margin-top:2px">${c.g} · P: ${c.p}g · C: ${c.c}g · G: ${c.gr}g · ${c.cal} kcal</p>
-              </div>
-              <button onClick=${() => borrarAlimentoLog(c.id)} style="color:${D.rose};padding:6px">
-                <i class="ti ti-x"></i>
-              </button>
-            </div>`;
-          })}
+          ${comidasHoy.length === 0 ? html`<p style="font-size:13px;color:${D.faint};text-align:center;padding:12px">No hay registros hoy para este filtro.</p>` : html`
+            <div class="space-y-4">
+              ${comidasAgrupadas
+                .filter(grupo => activeCategoryFilter === "Todos" || grupo.cat === activeCategoryFilter)
+                .map(grupo => {
+                  const icon = grupo.cat === "Desayuno" ? "🍳" : grupo.cat === "Comida" ? "🥩" : grupo.cat === "Cena" ? "🥗" : grupo.cat === "Snack" ? "🍌" : "🥛";
+                  return html`<div class="bg-[#13131c] border border-[#2a2a38] rounded-xl overflow-hidden" key=${grupo.cat}>
+                    <div class="bg-[#1a1a26] px-4 py-2.5 flex justify-between items-center border-b border-[#2a2a38]">
+                      <div class="flex items-center gap-2">
+                        <span>${icon}</span>
+                        <span class="font-bold text-xs text-white uppercase tracking-wider">${grupo.cat}</span>
+                      </div>
+                      <span class="text-xs text-[#c4f542] font-semibold">
+                        ${grupo.totalCal} kcal <span class="text-[#8a8a9a] font-normal">· P:${grupo.totalProt}g C:${grupo.totalCarbs}g G:${grupo.totalGrasa}g</span>
+                      </span>
+                    </div>
+                    <div class="divide-y divide-[#2a2a38] px-4">
+                      ${grupo.items.map(item => html`<div class="py-2.5 flex justify-between items-center" key=${item.id}>
+                        <div>
+                          <p class="text-sm font-semibold text-white">${item.n}</p>
+                          <p class="text-xs text-[#8a8a9a] mt-0.5">${item.g} · ${item.cal} kcal · P:${item.p}g C:${item.c}g G:${item.gr}g</p>
+                        </div>
+                        <button onClick=${() => borrarAlimentoLog(item.id)} class="text-[#fb7185] p-2 hover:bg-[#fb7185]10 rounded-lg transition-colors">
+                          <i class="ti ti-trash"></i>
+                        </button>
+                      </div>`)}
+                    </div>
+                  </div>`;
+                })
+              }
+            </div>
+          `}
         </div>
 
         <!-- Biblioteca personalizada (vía Sheets) -->
@@ -1222,7 +1244,7 @@ ${JSON.stringify({
       if (!loaded) {
         return html`<div class="h-screen flex flex-col items-center justify-center gap-4 bg-[#0a0a0f] text-[#f4f4f7]">
           <${Spinner} size=${36}/>
-          <div style="color:${D.dim};font-size:13px">Cargando base de datos OuryFit...</div>
+          <div style="color:${D.dim};font-size:13px">Bienvenido de vuelta...</div>
         </div>`;
       }
 
