@@ -80,10 +80,10 @@
     const html = htm.bind(h);
 
     // ── STREAMING_CHUNK: Defining configurations and sheet keys ──
-    const KEY = "OuryFitV9";
+    const KEY = "OuryFitV10";
     const SESSION_KEY = "ouryfit_session";
     const DIETA_DB_KEY = "OuryFit_Diet_Library"; // Base de datos alternativa para la dieta
-    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxEtgd1_jt51ohIMoSUNEG5Bp-ZSDdW3KrYIchHJ_w6LsGKqrPFJFGo5z4Ey0bN-Y8TfA/exec";
+    const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyeH8uEHFG9SRk_G5yzTWmgbBr6oM2NKhMUI4drxcgPIoxnTKYX_ba0anjV51aKDih7Qw/exec";
     const CLIENT_ID = "362581552628-qroeqtmtj5sfvd3o15fp0o0ueitdu0av.apps.googleusercontent.com";
 
     const D = {
@@ -407,12 +407,12 @@
         <div style="font-size:14px;color:${D.dim};margin-bottom:40px">Tu plan, sincronizado y balanceado</div>
 
         ${error === "acceso_denegado" && html`<div style="background:#2a0f0f;border:1px solid ${D.rose}44;border-radius:14px;padding:12px 18px;margin-bottom:20px;font-size:13px;color:${D.rose};text-align:center;max-width:300px">
-          Este correo no tiene acceso autorizado a la hoja OuryFitV8.
+          Este correo no tiene acceso autorizado a la hoja OuryFit.
         </div>`}
 
         <div style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:28px;text-align:center;max-width:320px;width:100%">
           <div style="font-size:15px;font-weight:600;margin-bottom:6px">Inicia con Google Sheets</div>
-          <div style="font-size:13px;color:${D.dim};margin-bottom:24px">Tus progresos se guardan en tu hoja de cálculo OuryFitV8 automáticamente.</div>
+          <div style="font-size:13px;color:${D.dim};margin-bottom:24px">Tus progresos se guardan en tu hoja de cálculo OuryFit automáticamente.</div>
           <div id="g_btn" style="display:flex;justify-content:center;min-height:44px;align-items:center">
             ${!ready && html`<${Spinner} size=${24}/>`}
           </div>
@@ -1127,7 +1127,7 @@
         <!-- Visor limpio de la base de datos local y sincronizada -->
         <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:20px" class="space-y-3">
           <h3 style="font-size:14px;font-weight:700;color:${D.text}">Visor de Base de Datos</h3>
-          <p class="text-xs text-[#8a8a9a]">Estado bruto actual de la dieta guardada localmente y tu hoja OuryFitV8.</p>
+          <p class="text-xs text-[#8a8a9a]">Estado bruto actual de la dieta guardada localmente y tu hoja OuryFit.</p>
           
           <div style="background:#0a0a0f;padding:12px;border-radius:12px;border:1px solid ${D.line};max-height:160px;overflow-y:auto">
             <pre style="font-size:10px;color:${D.cyan};font-family:monospace">
@@ -1171,7 +1171,7 @@ ${JSON.stringify({
       if (!loaded) {
         return html`<div class="h-screen flex flex-col items-center justify-center gap-4 bg-[#0a0a0f] text-[#f4f4f7]">
           <${Spinner} size=${36}/>
-          <div style="color:${D.dim};font-size:13px">Cargando base de datos OuryFitV8...</div>
+          <div style="color:${D.dim};font-size:13px">Bienvenido de vuelta...</div>
         </div>`;
       }
 
