@@ -435,24 +435,12 @@
         save({ ...data, diaCicloActivo: index });
       };
 
-      const ajustarAgua = (cantidad, e) => {
-        if (e) e.stopPropagation(); // Evita navegar a la pestaña de comidas si se pulsan los botones de ajuste rápido
-        const nuevaCantidad = Math.max(0, parseFloat((aguaHoy + cantidad).toFixed(2)));
-        save({
-          ...data,
-          agua: {
-            ...data.agua,
-            [hk]: nuevaCantidad
-          }
-        });
-      };
-
       return html`<div class="p-4 space-y-6">
         <!-- Saludo e info superior -->
         <div class="fade flex justify-between items-start">
           <div>
             <div style="font-size:13px;color:${D.dim}">Hola, Oury</div>
-            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm font-semibold">Pro</span></div>
+            <div style="font-size:28px;font-weight:900;letter-spacing:-1px;color:${D.text}">OuryFit <span class="text-[#c4f542] text-sm font-semibold">Sheets</span></div>
           </div>
           <div style="display:flex;align-items:center;gap:7px;background:${D.card};border:1px solid ${D.line};border-radius:14px;padding:9px 14px">
             <i class="ti ti-flame" style="font-size:20px;color:${D.amber}"/>
@@ -508,7 +496,7 @@
           </div>
           <div style="display:flex;gap:20px;align-items:center">
             <div style="position:relative;width:120px;height:120px;flex-shrink:0">
-              <Ring pct=${calPct} color=${D.lime}/>
+              <${Ring} pct=${calPct} color=${D.lime}/>
               <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
                 <div style="font-size:26px;font-weight:800;color:${D.text};letter-spacing:-1px">${Math.round(cm.cal)}</div>
                 <div style="font-size:10px;color:${D.faint};letter-spacing:0.5px">/ ${data.metas.calorias} kcal</div>
@@ -525,51 +513,31 @@
                   <span style="color:${D.dim}">${x.l}</span>
                   <span style="color:${D.text};font-weight:600">${Math.round(x.v)}g<span style="color:${D.faint}">/${x.m}g</span></span>
                 </div>
-                <Bar pct=${(x.v / x.m) * 100} color=${x.c}/>
+                <${Bar} pct=${(x.v / x.m) * 100} color=${x.c}/>
               </div>`)}
             </div>
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          <!-- Tarjeta de Agua con ajustes rápidos de consumo -->
-          <div class="press" onClick=${() => setView("comidas")} 
-               style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:16px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;height:148px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="press" onClick=${() => setView("comidas")} style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:16px;cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <i class="ti ti-droplet" style="font-size:22px;color:${D.cyan}"/>
               <div style="font-size:11px;color:${D.faint}">de ${data.metas.agua}L</div>
             </div>
-            <div>
-              <div style="font-size:26px;font-weight:800;color:${D.text};letter-spacing:-0.5px">${aguaHoy.toFixed(1)}<span style="font-size:14px;color:${D.dim}">L</span></div>
-              <div style="font-size:12px;color:${D.dim};margin-bottom:4px">Agua</div>
-            </div>
-            
-            <!-- Botones interactivos para sumar y restar agua consumida directamente -->
-            <div style="display:flex;gap:6px;margin-bottom:8px;z-index:20">
-              <button onClick=${(e) => ajustarAgua(-0.25, e)} class="press"
-                style="flex:1;background:${D.surface};border:1px solid ${D.line};border-radius:8px;padding:4px;font-size:11px;font-weight:bold;color:${D.rose}">
-                -0.25L
-              </button>
-              <button onClick=${(e) => ajustarAgua(0.25, e)} class="press"
-                style="flex:1;background:${D.surface};border:1px solid ${D.line};border-radius:8px;padding:4px;font-size:11px;font-weight:bold;color:${D.cyan}">
-                +0.25L
-              </button>
-            </div>
-            
-            <Bar pct=${(aguaHoy / data.metas.agua) * 100} color=${D.cyan} h=${5}/>
+            <div style="font-size:26px;font-weight:800;color:${D.text};letter-spacing:-0.5px">${aguaHoy.toFixed(1)}<span style="font-size:14px;color:${D.dim}">L</span></div>
+            <div style="font-size:12px;color:${D.dim};margin-bottom:8px">Agua</div>
+            <${Bar} pct=${(aguaHoy / data.metas.agua) * 100} color=${D.cyan} h=${5}/>
           </div>
           
-          <div class="press" onClick=${() => setView("progreso")} 
-               style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:16px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;height:148px">
-            <div style="display:flex;justify-content:space-between;align-items:center">
+          <div class="press" onClick=${() => setView("progreso")} style="background:${D.card};border:1px solid ${D.line};border-radius:20px;padding:16px;cursor:pointer">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
               <i class="ti ti-scale" style="font-size:22px;color:${D.lime}"/>
               <div style="font-size:11px;color:${D.faint}">meta ${data.metas.pesoObjetivo}kg</div>
             </div>
-            <div>
-              <div style="font-size:26px;font-weight:800;color:${D.text};letter-spacing:-0.5px">${data.profile.peso}<span style="font-size:14px;color:${D.dim}">kg</span></div>
-              <div style="font-size:12px;color:${D.dim};margin-bottom:28px">Peso actual</div>
-            </div>
-            <Bar pct=${(data.profile.peso / data.metas.pesoObjetivo) * 100} color=${D.lime} h=${5}/>
+            <div style="font-size:26px;font-weight:800;color:${D.text};letter-spacing:-0.5px">${data.profile.peso}<span style="font-size:14px;color:${D.dim}">kg</span></div>
+            <div style="font-size:12px;color:${D.dim};margin-bottom:8px">Peso actual</div>
+            <${Bar} pct=${(data.profile.peso / data.metas.pesoObjetivo) * 100} color=${D.lime} h=${5}/>
           </div>
         </div>
 
@@ -720,7 +688,7 @@
                         <span style="font-size:14px;font-weight:700;color:${D.text}">${ej.nombre}</span>
                         <span style="font-size:13px;color:${D.lime};font-weight:600">${ej.series}x${ej.reps}</span>
                       </div>
-                      ${ej.notas && html`<p style="font-size:11px;color:${D.dim};margin-top:4px"><i class="ti ti-info-circle" style="color:${D.lime}"></i> ${ej.notes || ej.notas}</p>`}
+                      ${ej.notas && html`<p style="font-size:11px;color:${D.dim};margin-top:4px"><i class="ti ti-info-circle" style="color:${D.lime}"></i> ${ej.notas}</p>`}
                     </div>`}
                   </div>`;
                 })}
@@ -744,6 +712,7 @@
 
       const CATEGORIAS = ["Desayuno", "Comida", "Cena", "Snack", "Suplemento"];
 
+      // Helper robusto para análisis de números seguros y evitar fallas
       const parseNum = (val) => {
         if (val === undefined || val === null || val === "") return 0;
         const parsed = Math.round(Number(val));
@@ -754,6 +723,7 @@
         if (!food) return;
         const hLog = data.comidas[hk] || { cal: 0, prot: 0, carbs: 0, grasa: 0, list: [] };
         
+        // Mapeo absoluto y limpio compatible con Sheets y alimentos predefinidos/manuales
         const cleanFoodItem = {
           id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
           n: food.n || "Alimento",
@@ -767,6 +737,7 @@
 
         const newList = [...(hLog.list || []), cleanFoodItem];
         
+        // Acumular macros diarios completos
         const tot = newList.reduce((acc, x) => {
           acc.cal += x.cal;
           acc.prot += x.p;
@@ -820,6 +791,7 @@
         setManual({ n: "", g: "", cal: "", p: "", c: "", gr: "", cat: manual.cat });
       };
 
+      // Agrupación profesional de comidas para visualización en tramos (Desayuno, Comida, etc.)
       const comidasAgrupadas = CATEGORIAS.reduce((acc, cat) => {
         const items = comidasHoy.filter(x => x.cat === cat);
         if (items.length > 0) {
@@ -831,18 +803,6 @@
         }
         return acc;
       }, []);
-
-      const filtrados = activeCategoryFilter === "Todos" 
-        ? comidasHoy 
-        : comidasHoy.filter(x => x.cat === activeCategoryFilter);
-
-      const parciales = filtrados.reduce((acc, item) => {
-        acc.cal += item.cal;
-        acc.p += item.p;
-        acc.c += item.c;
-        acc.gr += item.gr;
-        return acc;
-      }, { cal: 0, p: 0, c: 0, gr: 0 });
 
       return html`<div class="p-4 space-y-6">
         <div>
@@ -911,7 +871,7 @@
           </div>
         </div>
 
-        <!-- Desglose interactivo por categorías de comidasHoy -->
+        <!-- Desglose por tramos (Agrupado por categorías) -->
         <div style="background:${D.card};border:1px solid ${D.line};border-radius:24px;padding:18px" class="space-y-4">
           <div class="flex justify-between items-center">
             <h3 style="font-size:14px;font-weight:700;color:${D.text}">Consumido Hoy</h3>
@@ -1076,7 +1036,7 @@
         </div>
 
         ${timer !== null && html`<div class="fade" style="background:${D.card};border:1px solid ${D.lime}33;border-radius:20px;padding:16px">
-          <Timer segundos=${timer} onDone=${() => { setTimer(null); sonarBeep(); }} color=${rut.acento}/>
+          <${Timer} segundos=${timer} onDone=${() => { setTimer(null); sonarBeep(); }} color=${rut.acento}/>
         </div>`}
 
         <div class="space-y-4">
@@ -1283,13 +1243,13 @@ ${JSON.stringify({
 
       if (!loaded) {
         return html`<div class="h-screen flex flex-col items-center justify-center gap-4 bg-[#0a0a0f] text-[#f4f4f7]">
-          <Spinner size=${36}/>
+          <${Spinner} size=${36}/>
           <div style="color:${D.dim};font-size:13px">Bienvenido de vuelta...</div>
         </div>`;
       }
 
       if (!email) {
-        return html`<LoginScreen onLogin=${handleGoogleLogin} error=${authError}/>`;
+        return html`<${LoginScreen} onLogin=${handleGoogleLogin} error=${authError}/>`;
       }
 
       return html`<div style="min-height:100vh;background-color:${D.bg};color:${D.text};display:flex;flex-direction:column;max-width:480px;margin:0 auto;border-left:1px solid ${D.line};border-right:1px solid ${D.line};padding-bottom:80px">
@@ -1308,12 +1268,12 @@ ${JSON.stringify({
         </header>
 
         <main class="flex-grow">
-          ${view === "dashboard" && html`<Dashboard data=${data} save=${save} setView=${setView}/>`}
-          ${view === "rutinas" && html`<Rutinas data=${data} save=${save}/>`}
-          ${view === "comidas" && html`<Comidas data=${data} save=${save} customFoods=${customFoods} addCustomFood=${addCustomFood} removeCustomFood=${removeCustomFood}/>`}
-          ${view === "progreso" && html`<Progreso data=${data} save=${save}/>`}
-          ${view === "ajustes" && html`<Ajustes data=${data} save=${save} logout=${logout} customFoods=${customFoods} email=${email} syncing=${syncing}/>`}
-          ${view === "entreno" && html`<Entreno data=${data} save=${save} setView=${setView}/>`}
+          ${view === "dashboard" && html`<${Dashboard} data=${data} save=${save} setView=${setView}/>`}
+          ${view === "rutinas" && html`<${Rutinas} data=${data} save=${save}/>`}
+          ${view === "comidas" && html`<${Comidas} data=${data} save=${save} customFoods=${customFoods} addCustomFood=${addCustomFood} removeCustomFood=${removeCustomFood}/>`}
+          ${view === "progreso" && html`<${Progreso} data=${data} save=${save}/>`}
+          ${view === "ajustes" && html`<${Ajustes} data=${data} save=${save} logout=${logout} customFoods=${customFoods} email=${email} syncing=${syncing}/>`}
+          ${view === "entreno" && html`<${Entreno} data=${data} save=${save} setView=${setView}/>`}
         </main>
 
         <nav style="position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;background:${D.bg}EE;backdrop-filter:blur(10px);border-top:1px solid ${D.line};display:flex;justify-content:space-around;padding:10px 0;z-index:40">
