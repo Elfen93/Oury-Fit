@@ -13,11 +13,15 @@ App web (PWA) para registrar el gimnasio, la comida y el progreso. Pensada para 
 
 ## Datos
 
-- **Con Google**: inicia sesión y los datos se guardan en tu hoja mediante el Apps Script (`SCRIPT_URL` en `js/data.js`). Primero se guarda todo en el dispositivo y luego se sube; si no hay conexión se reintenta solo.
-- **Modo local**: sin cuenta; los datos se quedan en el navegador. Si luego entras con Google y tu hoja está vacía, se suben.
-- Los datos de la versión anterior (v4) se migran solos.
+- **Con cuenta**: email y contraseña (Neon Auth). Los datos se guardan en Neon (Postgres, proyecto `ouryfit`) en la tabla `ouryfit_datos`, una fila por usuario protegida con Row-Level Security. Primero se guarda todo en el dispositivo y luego se sube; si no hay conexión se reintenta solo.
+- **Historial de versiones**: cada vez que se sobrescriben los datos, la versión anterior se copia en `ouryfit_historial` (como mucho una cada 10 minutos, se conservan 200). Sirve para recuperar datos si algo se sobrescribe por error.
+- **Modo local**: sin cuenta; los datos se quedan en el navegador. Si luego entras y tu cuenta no tiene datos, se suben.
+- **Importar desde Google Sheets**: en Ajustes → Tus datos, para traer una vez lo que quedó en la hoja de la versión anterior.
+- Los datos de la versión anterior (v4) guardados en el navegador se migran solos.
 
-El contrato con el Apps Script no cambia (`perfil`, `entrenos`, `comidas`, `agua`, `peso`, `records`). Las rutinas, el plan semanal y los alimentos propios viajan dentro de `perfil`.
+### Despliegue
+
+`render.yaml` publica la carpeta como sitio estático en Render y reenvía `/neon-auth/*` al servidor de autenticación de Neon, para que la cookie de sesión sea del mismo dominio que la app. Hay que añadir la URL de Render como dominio de confianza en Neon Auth.
 
 ## Estructura
 
@@ -27,7 +31,8 @@ Sin paso de compilación: HTML + módulos ES. Preact, htm y los iconos de Tabler
 index.html            entrada
 css/app.css           estilos
 js/app.js             app, navegación, temporizador de descanso
-js/store.js           guardado local + sincronización con Google Sheets
+js/store.js           guardado local + sincronización
+js/neon.js            sesión (Neon Auth) y datos (Data API)
 js/data.js            configuración, rutinas y alimentos por defecto, migración
 js/calc.js            lógica: fechas, rachas, historial, récords, nutrición
 js/ui.js              componentes compartidos

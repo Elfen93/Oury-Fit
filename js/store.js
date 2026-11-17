@@ -1,7 +1,7 @@
-// ── Almacenamiento: local primero, sincronización con Google Sheets ─────
+// ── Almacenamiento: local primero, sincronización con Neon ──────────────
 import { useState, useEffect, useRef } from "./lib.js";
-import { LS, SCRIPT_URL, datosPorDefecto, migrar, aHoja, deHoja } from "./data.js";
-import { rachas, semanaPrograma } from "./calc.js";
+import { LS, SHEETS_URL_ANTIGUA, datosPorDefecto, migrar, deHoja } from "./data.js";
+import * as neon from "./neon.js";
 
 export const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -10,42 +10,23 @@ export const ls = {
   json(k) { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; } catch { return null; } },
 };
 
-async function hojaCargar(email) {
-  const r = await fetch(`${SCRIPT_URL}?action=load&email=${encodeURIComponent(email)}`);
+// Importación única de los datos que quedaron en la hoja de Google (app v4).
+export async function importarDeSheets(email) {
+  const r = await fetch(`${SHEETS_URL_ANTIGUA}?action=load&email=${encodeURIComponent(email)}`);
   const j = await r.json();
-  if (j.status === "error") throw new Error(j.error || "error");
-  return j.data || {};
-}
-
-async function hojaGuardar(email, data, keepalive = false) {
-  const body = JSON.stringify({ action: "save", email, data });
-  // Sin content-type → text/plain: evita el preflight CORS con Apps Script.
-  const r = await fetch(SCRIPT_URL, { method: "POST", body, keepalive: keepalive && body.length < 60000 });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  try { const j = await r.json(); if (j?.status === "error") throw new Error(j.error); } catch (e) { if (e.message && !/JSON|Unexpected/.test(e.message)) throw e; }
-}
-
-function paraHoja(d) {
-  const { actual, mejor } = rachas(d);
-  return aHoja(d, { racha: actual, mejorRacha: mejor, semana: semanaPrograma(d) });
-}
-
-// Decodifica el JWT de Google (base64url + UTF-8; la v4 fallaba con tildes).
-export function leerJWT(token) {
-  const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64 + "===".slice((b64.length + 3) % 4));
-  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
-  return JSON.parse(new TextDecoder().decode(bytes));
+  if (j.status === "error") throw new Error(j.error === "acceso_denegado" ? "Ese email no tiene acceso a la hoja." : j.error || "Error");
+  return deHoja(j.data || {});
 }
 
 function cuentaInicial() {
+  const modo = ls.get(LS.mode);
   const email = ls.get(LS.email);
-  if (email) return { modo: "google", email };
-  if (ls.get(LS.mode) === "local") return { modo: "local" };
+  if (modo === "neon" && email) return { modo: "neon", email };
+  if (modo === "local") return { modo: "local" };
   return null;
 }
 
-function cargarLocal(owner) {
+function cargarLocal() {
   const d = ls.json(LS.data);
   if (d) return { data: migrar(d), owner: ls.get(LS.owner) };
   const legacy = ls.json(LS.legacy);
@@ -70,21 +51,28 @@ export function useStore() {
     if (persistir) {
       ls.set(LS.data, JSON.stringify(d));
       const c = cuentaRef.current;
-      ls.set(LS.owner, c?.modo === "google" ? c.email : "local");
+      ls.set(LS.owner, c?.modo === "neon" ? c.email : "local");
     }
   }
 
-  async function subir(keepalive = false) {
-    const c = cuentaRef.current;
-    if (c?.modo !== "google" || !ref.current) return;
+  function sesionPerdida() {
+    // Los datos siguen en el dispositivo; al volver a entrar se suben.
+    ls.del(LS.mode);
+    setAuthError("sesion");
+    setCuenta(null);
+  }
+
+  async function subir() {
+    if (cuentaRef.current?.modo !== "neon" || !ref.current) return;
     clearTimeout(timer.current);
     const v = rev.current;
     setSync("guardando");
     try {
-      await hojaGuardar(c.email, paraHoja(ref.current), keepalive);
+      await neon.guardarDatos(ref.current);
       if (rev.current === v) ls.del(LS.dirty);
       setSync("ok");
-    } catch {
+    } catch (e) {
+      if (e instanceof neon.SinSesion) return sesionPerdida();
       setSync("error");
     }
   }
@@ -106,37 +94,31 @@ export function useStore() {
     if (mismoDueno) aplicar(local.data, false);
     setSync("cargando");
 
-    hojaCargar(cuenta.email)
-      .then((raw) => {
+    neon.cargarDatos()
+      .then((fila) => {
         if (cancel) return;
-        const remoto = deHoja(raw);
         if (pendiente) { subir(); return; } // cambios locales sin subir: mandan ellos
-        if (remoto.profile.setup) { aplicar(remoto); setSync("ok"); return; }
-        // Hoja vacía: si hay datos locales (de modo local o v4) los adoptamos y los subimos
-        if (local?.data.profile.setup) { aplicar(local.data); ls.set(LS.dirty, "1"); subir(); return; }
-        aplicar(remoto); setSync("ok");
+        if (fila?.data) { aplicar(migrar(fila.data)); setSync("ok"); return; }
+        // Base de datos vacía: adoptamos lo que haya en el dispositivo (modo local, v4 o la versión con Sheets)
+        aplicar(local?.data || datosPorDefecto());
+        if (local?.data.profile.setup) { ls.set(LS.dirty, "1"); subir(); } else setSync("ok");
       })
-      .catch((err) => {
+      .catch((e) => {
         if (cancel) return;
-        if (err.message === "acceso_denegado") {
-          setAuthError("acceso_denegado");
-          ls.del(LS.email);
-          setCuenta(null);
-          return;
-        }
+        if (e instanceof neon.SinSesion) return sesionPerdida();
         if (!mismoDueno) aplicar(datosPorDefecto(), false);
-        setSync("error");
+        setSync("error"); // sin conexión: se sigue usando lo local
       });
     return () => { cancel = true; };
   }, [cuenta]);
 
-  // Reintentos: al recuperar conexión y al salir de la app
+  // Reintentos: al recuperar conexión y al volver a la app
   useEffect(() => {
-    const online = () => ls.get(LS.dirty) === "1" && subir();
-    const vis = () => document.visibilityState === "hidden" && ls.get(LS.dirty) === "1" && subir(true);
-    window.addEventListener("online", online);
+    const reintentar = () => ls.get(LS.dirty) === "1" && subir();
+    const vis = () => reintentar();
+    window.addEventListener("online", reintentar);
     document.addEventListener("visibilitychange", vis);
-    return () => { window.removeEventListener("online", online); document.removeEventListener("visibilitychange", vis); };
+    return () => { window.removeEventListener("online", reintentar); document.removeEventListener("visibilitychange", vis); };
   }, []);
 
   // update(fn | objeto): siempre parte del estado más reciente.
@@ -144,7 +126,7 @@ export function useStore() {
     const nd = typeof fn === "function" ? fn(ref.current) : fn;
     if (!nd || nd === ref.current) return;
     aplicar(nd);
-    if (cuentaRef.current?.modo === "google") {
+    if (cuentaRef.current?.modo === "neon") {
       rev.current++;
       ls.set(LS.dirty, "1");
       clearTimeout(timer.current);
@@ -152,13 +134,14 @@ export function useStore() {
     }
   }
 
-  function loginGoogle(credential) {
-    const p = leerJWT(credential);
-    if (p.given_name) ls.set(LS.nameHint, p.given_name);
-    ls.set(LS.email, p.email);
-    ls.del(LS.mode);
+  async function login(email, password, crear) {
+    email = email.trim().toLowerCase();
+    if (crear) await neon.registrar(email, password);
+    else await neon.entrar(email, password);
+    ls.set(LS.email, email);
+    ls.set(LS.mode, "neon");
     setAuthError(null);
-    setCuenta({ modo: "google", email: p.email });
+    setCuenta({ modo: "neon", email });
   }
 
   function usarLocal() {
@@ -169,15 +152,15 @@ export function useStore() {
 
   async function salir() {
     const c = cuentaRef.current;
-    if (c?.modo === "google") {
+    if (c?.modo === "neon") {
       if (ls.get(LS.dirty) === "1") await subir();
+      await neon.salir();
+      // Solo se borra la copia local si todo está subido
       if (ls.get(LS.dirty) !== "1") { ls.del(LS.data); ls.del(LS.owner); ls.del(LS.session); }
-      ls.del(LS.email);
-    } else {
-      ls.del(LS.mode);
     }
+    ls.del(LS.mode);
     setCuenta(null);
   }
 
-  return { cuenta, data, update, sync, subir, authError, loginGoogle, usarLocal, salir };
+  return { cuenta, data, update, sync, subir, authError, login, usarLocal, salir };
 }

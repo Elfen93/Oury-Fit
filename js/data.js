@@ -1,8 +1,15 @@
 // ── Configuración, valores por defecto y migración de datos ─────────────
 
-export const SCRIPT_URL =
+// Neon (proyecto "ouryfit"): Auth para la sesión y Data API para los datos.
+// Son URLs públicas; la seguridad la ponen la sesión y las reglas RLS de la tabla.
+export const NEON = {
+  auth: "https://ep-frosty-wildflower-a1axnxg9.neonauth.ap-southeast-1.aws.neon.tech/neondb/auth",
+  rest: "https://ep-frosty-wildflower-a1axnxg9.apirest.ap-southeast-1.aws.neon.tech/neondb/rest/v1",
+};
+
+// Solo para importar una vez los datos que quedaron en la hoja de Google.
+export const SHEETS_URL_ANTIGUA =
   "https://script.google.com/macros/s/AKfycbx9a53S1XnVF062jH6zPP9gsBruTWSlBn7EBbMq-YGVwTjuD-tiQ2MgfxMNMWqeK8f3ZQ/exec";
-export const CLIENT_ID = "362581552628-qroeqtmtj5sfvd3o15fp0o0ueitdu0av.apps.googleusercontent.com";
 
 export const VERSION = 5;
 export const LS = {
@@ -12,7 +19,6 @@ export const LS = {
   dirty: "ouryfit_dirty",
   email: "ouryfit_email",
   mode: "ouryfit_mode",
-  nameHint: "ouryfit_name_hint",
   session: "ouryfit_session_v5",
 };
 
@@ -213,28 +219,7 @@ export function migrar(raw) {
   return d;
 }
 
-// ── Formato de la hoja de Google (mismo contrato que la versión anterior) ──
-// El Apps Script guarda las claves perfil / entrenos / comidas / agua / peso / records.
-// Lo nuevo (rutinas, plan, alimentos propios) viaja dentro de "perfil".
-export function aHoja(d, extra = {}) {
-  return {
-    perfil: {
-      version: VERSION,
-      profile: d.profile,
-      metas: d.metas,
-      rutinas: d.rutinas,
-      plan: d.plan,
-      alimentos: d.alimentos,
-      ...extra, // racha, mejorRacha, semana (compatibilidad v4)
-    },
-    entrenos: d.registros,
-    comidas: d.comidas,
-    agua: d.agua,
-    peso: d.pesoCorporal,
-    records: d.records,
-  };
-}
-
+// ── Importación única desde la hoja de Google (formato v4) ──
 export function deHoja(raw) {
   const r = obj(raw);
   const perfil = obj(r.perfil);

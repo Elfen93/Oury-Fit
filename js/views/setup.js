@@ -1,14 +1,13 @@
 import { html, useState } from "../lib.js";
-import { OBJETIVOS, calcularMetas, LS } from "../data.js";
+import { OBJETIVOS, calcularMetas } from "../data.js";
 import { diasEntreno, hoy } from "../calc.js";
-import { ls } from "../store.js";
 import { Icon } from "../ui.js";
 import { Logo } from "./login.js";
 
 export function Setup({ data, update }) {
   const [paso, setPaso] = useState(0);
   const [v, setV] = useState({
-    name: data.profile.name || ls.get(LS.nameHint) || "",
+    name: data.profile.name || "",
     sexo: data.profile.sexo || "h",
     edad: data.profile.edad || "",
     peso: data.profile.peso || "",

@@ -69,7 +69,7 @@ function Descanso({ rest, setRest }) {
 
 function App() {
   const store = useStore();
-  const { cuenta, data, update, authError, loginGoogle, usarLocal } = store;
+  const { cuenta, data, update, authError, login, usarLocal } = store;
   const [vista, setVista] = useState("hoy");
   const [sesion, setSesionState] = useState(() => ls.json(LS.session));
   const [rest, setRest] = useState(null);
@@ -109,7 +109,7 @@ function App() {
     setRest({ fin: Date.now() + seg * 1000, total: seg });
   }
 
-  if (!cuenta) return html`<${Login} onGoogle=${loginGoogle} onLocal=${usarLocal} error=${authError}/>`;
+  if (!cuenta) return html`<${Login} onLogin=${login} onLocal=${usarLocal} error=${authError}/>`;
   if (!data) return html`<main class="center-screen"><${Spinner}/><p class="faint small" style="margin-top:14px">Cargando tus datos…</p></main>`;
   if (!data.profile.setup) return html`<${Setup} data=${data} update=${update}/>`;
 
@@ -118,7 +118,7 @@ function App() {
   const tabActiva = vista === "rutinas" ? "ajustes" : vista;
 
   return html`<${Ctx.Provider} value=${ctx}>
-    ${store.sync === "error" && cuenta.modo === "google" && html`<button class="sync-pill press" onClick=${() => store.subir()}><${Icon} n="cloud-off" size=${14}/> Sin sincronizar · reintentar</button>`}
+    ${store.sync === "error" && cuenta.modo === "neon" && html`<button class="sync-pill press" onClick=${() => store.subir()}><${Icon} n="cloud-off" size=${14}/> Sin sincronizar · reintentar</button>`}
     ${aviso && html`<div class="toast" key=${aviso.msg}><${Icon} n=${aviso.icon} size=${18}/> ${aviso.msg}</div>`}
     <div class="shell ${rest ? "with-rest" : ""}"><${Vista} key=${vista}/></div>
     <${Descanso} rest=${rest} setRest=${setRest}/>

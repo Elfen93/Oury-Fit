@@ -1,12 +1,15 @@
 import { html, useState, useRef } from "../lib.js";
 import { OBJETIVOS, calcularMetas, migrar } from "../data.js";
 import { diasEntreno, aCSV, descargar, hoy } from "../calc.js";
-import { Icon, TopBar, Section, useApp } from "../ui.js";
+import { Icon, TopBar, Section, useApp, Spinner } from "../ui.js";
+import { importarDeSheets } from "../store.js";
 
 export function Ajustes() {
   const { data, update, go, cuenta, sync, subir, salir, toast } = useApp();
   const [p, setP] = useState({ ...data.profile });
   const fileRef = useRef();
+  const [sheetsEmail, setSheetsEmail] = useState("");
+  const [importando, setImportando] = useState(false);
   const cambiado = ["name", "sexo", "edad", "peso", "altura", "objetivo"].some((k) => String(p[k]) !== String(data.profile[k]));
   const sugeridas = calcularMetas(p, diasEntreno(data));
 
@@ -42,11 +45,26 @@ export function Ajustes() {
     rd.readAsText(f);
   }
 
+  async function deSheets() {
+    if (!sheetsEmail.includes("@")) return;
+    setImportando(true);
+    try {
+      const nd = await importarDeSheets(sheetsEmail.trim());
+      const n = Object.keys(nd.registros).length, c = Object.keys(nd.comidas).length;
+      if (!n && !c && !nd.profile.setup) { alert("La hoja está vacía para ese email."); return; }
+      if (!confirm(`En la hoja hay ${n} entrenos y ${c} días de comidas.\nEsto SUSTITUYE tus datos actuales (puedes hacer antes una copia JSON). ¿Importar?`)) return;
+      update(nd);
+      toast("Datos de Google Sheets importados");
+    } catch (e) {
+      alert("No se pudo leer la hoja: " + (e.message || e));
+    } finally { setImportando(false); }
+  }
+
   const syncTxt = {
-    cargando: ["refresh", "Cargando de Google…", "var(--dim)"],
+    cargando: ["refresh", "Cargando…", "var(--dim)"],
     guardando: ["refresh", "Guardando…", "var(--dim)"],
     ok: ["cloud-check", "Sincronizado", "var(--lime)"],
-    error: ["cloud-off", "Sin conexión con la hoja. Los cambios están a salvo en este dispositivo.", "var(--rose)"],
+    error: ["cloud-off", "Sin conexión. Los cambios están a salvo en este dispositivo y se subirán solos.", "var(--rose)"],
     idle: ["cloud", "Pendiente", "var(--dim)"],
   }[sync] || ["cloud", "", "var(--dim)"];
 
@@ -54,13 +72,13 @@ export function Ajustes() {
     <${TopBar} titulo="Ajustes"/>
 
     <${Section} titulo="Cuenta">
-      ${cuenta?.modo === "google"
-        ? html`<div class="kv"><span>Google</span><b class="small" style="word-break:break-all">${cuenta.email}</b></div>
+      ${cuenta?.modo === "neon"
+        ? html`<div class="kv"><span>Cuenta</span><b class="small" style="word-break:break-all">${cuenta.email}</b></div>
           <div class="kv"><span class="row" style="gap:6px;align-items:center;color:${syncTxt[2]}"><${Icon} n=${syncTxt[0]} size=${17}/> ${syncTxt[1]}</span>
             <button class="btn tiny ghost press" onClick=${() => subir()}>Sincronizar</button></div>`
-        : html`<p class="small dim">Modo local: los datos solo están en este navegador. Para no perderlos, haz copias de seguridad o entra con Google (se subirán si tu hoja está vacía).</p>`}
-      <button class="btn ghost press" style="margin-top:12px" onClick=${() => confirm(cuenta?.modo === "google" ? "¿Cerrar sesión en este dispositivo?" : "¿Salir del modo local? Tus datos se quedan guardados en este navegador.") && salir()}>
-        <${Icon} n="logout" size=${17}/> ${cuenta?.modo === "google" ? "Cerrar sesión" : "Salir / entrar con Google"}
+        : html`<p class="small dim">Modo local: los datos solo están en este navegador. Para no perderlos, haz copias de seguridad o entra con tu cuenta (se subirán si aún no hay nada guardado).</p>`}
+      <button class="btn ghost press" style="margin-top:12px" onClick=${() => confirm(cuenta?.modo === "neon" ? "¿Cerrar sesión en este dispositivo?" : "¿Salir del modo local? Tus datos se quedan guardados en este navegador.") && salir()}>
+        <${Icon} n="logout" size=${17}/> ${cuenta?.modo === "neon" ? "Cerrar sesión" : "Salir / entrar con mi cuenta"}
       </button>
     <//>
 
@@ -101,6 +119,13 @@ export function Ajustes() {
         <button class="btn ghost press" onClick=${() => descargar(`ouryfit-${hoy()}.csv`, "﻿" + aCSV(data), "text/csv;charset=utf-8")}>
           <${Icon} n="table-export" size=${17}/> Exportar CSV (Excel / Sheets)</button>
       </div>
+      <details class="more" style="margin-top:14px"><summary>Importar desde Google Sheets (versión anterior)</summary>
+        <p class="small dim" style="margin:8px 0">Trae los datos que quedaron en tu hoja de Google. Escribe el email con el que entrabas.</p>
+        <div class="row" style="gap:8px">
+          <input type="email" placeholder="tu@gmail.com" value=${sheetsEmail} onInput=${(e) => setSheetsEmail(e.target.value)} style="flex:1"/>
+          <button class="btn small ghost press" disabled=${importando || !sheetsEmail.includes("@")} onClick=${deSheets}>${importando ? html`<${Spinner} size=${16}/>` : "Importar"}</button>
+        </div>
+      </details>
       <input ref=${fileRef} type="file" accept="application/json,.json" style="display:none" onChange=${importar}/>
     <//>
 
