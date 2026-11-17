@@ -1,7 +1,8 @@
 import { html, useState, useEffect } from "../lib.js";
 import { uid } from "../data.js";
 import { hoy, rutinaDelDia, crearSesion, progresoSesion, cerrarSesion, fechaLarga, fmtKg } from "../calc.js";
-import { Icon, Bar, TopBar, useApp, color, Empty } from "../ui.js";
+import { Icon, Bar, TopBar, useApp, color, Empty, Sheet } from "../ui.js";
+import { aplicarProgresion, esCoach, sustituir } from "../entrenador.js";
 
 export function useAhora(ms = 1000, activo = true) {
   const [, setT] = useState(0);
@@ -63,9 +64,11 @@ function Selector() {
 }
 
 function Sesion({ sesion, setSesion, onFin }) {
-  const { data, update, startRest, stopRest, toast } = useApp();
+  const { data, update, startRest, stopRest, toast, go, setPreguntaCoach } = useApp();
   const ahora = useAhora(1000);
   const [notas, setNotas] = useState({});
+  const [cambio, setCambio] = useState(null); // índice del ejercicio a cambiar
+  const [enPlan, setEnPlan] = useState(true);
   const ac = color(sesion.acento);
   const p = progresoSesion(sesion);
   const seg = Math.floor((ahora - sesion.inicio) / 1000);
@@ -92,7 +95,7 @@ function Sesion({ sesion, setSesion, onFin }) {
     const e = sesion.ejercicios[ei];
     const s = e.sets[si];
     const done = !s.done;
-    const reps = s.reps || (e.prev?.[si]?.reps ? String(e.prev[si].reps) : String(parseInt(e.reps) || ""));
+    const reps = s.reps || (esCoach(e) ? String(e.repsMax) : e.prev?.[si]?.reps ? String(e.prev[si].reps) : String(parseInt(e.reps) || ""));
     const kg = s.kg || (si > 0 ? e.sets[si - 1].kg : "");
     setEj(ei, (x) => ({ ...x, sets: x.sets.map((y, j) => (j === si ? { ...y, done, reps: done ? reps : y.reps, kg: done ? kg : y.kg } : y)) }));
     if (done) {
@@ -125,10 +128,28 @@ function Sesion({ sesion, setSesion, onFin }) {
     if (!p.hechas) return;
     if (p.hechas < p.total && !confirm(`Quedan ${p.total - p.hechas} series sin marcar. ¿Terminar igualmente?`)) return;
     const { registro, records, nuevos, resumen } = cerrarSesion(data, sesion);
-    update((d) => ({ ...d, registros: { ...d.registros, [sesion.fecha]: registro }, records }));
+    const { estado, cambios } = aplicarProgresion(data.coach?.estado || {}, sesion, sesion.fecha);
+    update((d) => ({ ...d, registros: { ...d.registros, [sesion.fecha]: registro }, records, coach: { ...d.coach, estado } }));
     stopRest();
     setSesion(null);
-    onFin({ ...resumen, nuevos, rutina: sesion.rutina, acento: sesion.acento });
+    onFin({ ...resumen, nuevos, cambios, rutina: sesion.rutina, acento: sesion.acento });
+  }
+
+  const sentir = (ei, v) => setEj(ei, (e) => ({ ...e, sensacion: e.sensacion === v ? null : v }));
+
+  // Cambia un ejercicio de la sesión por una alternativa (y opcionalmente en el plan)
+  function cambiarPor(ei, nombre, tambienPlan) {
+    const e = sesion.ejercicios[ei];
+    const pesoConocido = data.coach?.estado?.[nombre]?.peso;
+    const nuevo = { ...e, id: uid(), nombre, notas: "", prev: null, sensacion: null, pesoPrescrito: pesoConocido ?? null,
+      alternativas: [e.nombre, ...(e.alternativas || []).filter((x) => x !== nombre)],
+      sets: e.sets.map(() => ({ kg: pesoConocido ? String(pesoConocido) : "", reps: "", done: false })) };
+    setSesion({ ...sesion, ejercicios: sesion.ejercicios.map((x, i) => (i === ei ? nuevo : x)) });
+    if (tambienPlan) update((d) => sustituir(d, { sesionId: sesion.rutinaId, ejercicioOriginal: e.nombre,
+      nuevo: { nombre, tipo: e.tipo || "peso", series: e.series, repsMin: e.repsMin, repsMax: e.repsMax, descanso: e.descanso,
+        pesoInicial: pesoConocido ?? 0, incremento: e.incremento || 2.5, tecnica: "", alternativas: nuevo.alternativas } }));
+    setCambio(null);
+    toast(`Cambiado por ${nombre}${tambienPlan ? " (también en tu plan)" : ""}`);
   }
 
   function descartar() {
@@ -152,6 +173,8 @@ function Sesion({ sesion, setSesion, onFin }) {
       </div>
     </section>
 
+    ${sesion.calentamiento && html`<div class="note"><${Icon} n="flame" size=${18}/><span><b>Calentamiento:</b> ${sesion.calentamiento}</span></div>`}
+
     ${sesion.ejercicios.map((e, ei) => {
       const completo = e.sets.length && e.sets.every((s) => s.done);
       const rec = data.records[e.nombre];
@@ -159,15 +182,19 @@ function Sesion({ sesion, setSesion, onFin }) {
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
           <div style="min-width:0">
             <h3>${e.nombre}</h3>
-            <div class="small dim"><b style="color:${ac}">${e.series}×${e.reps}</b> · ${e.descanso}s descanso</div>
+            <div class="small dim"><b style="color:${ac}">${e.series}×${e.reps}${e.pesoPrescrito ? ` · ${fmtKg(e.pesoPrescrito)} kg` : ""}</b> · ${e.descanso}s descanso</div>
           </div>
           <div class="row" style="gap:6px;flex-shrink:0">
             ${rec && html`<span class="pr"><${Icon} n="trophy" size=${13}/>${fmtKg(rec.peso)}</span>`}
             ${e.notas && html`<button class="icon-btn sm press" onClick=${() => setNotas({ ...notas, [ei]: !notas[ei] })} aria-label="Notas"><${Icon} n="bulb" size=${17} style="color:var(--amber)"/></button>`}
-            <button class="icon-btn sm press" onClick=${() => quitarEjercicio(ei)} aria-label="Quitar ejercicio"><${Icon} n="x" size=${17}/></button>
+            <button class="icon-btn sm press" onClick=${() => setCambio(ei)} aria-label="Cambiar o quitar ejercicio"><${Icon} n="arrows-exchange" size=${17}/></button>
           </div>
         </div>
         ${notas[ei] && html`<div class="tip">${e.notas}</div>`}
+        ${esCoach(e) && html`<div class="goal small"><${Icon} n="target" size=${15}/><span>${e.tipo === "peso" && e.pesoPrescrito
+          ? html`Objetivo: <b>${e.repsMax} reps</b> en cada serie con <b>${fmtKg(e.pesoPrescrito)} kg</b>. Si llegas, la próxima vez sube.`
+          : e.tipo === "peso" ? html`Primera vez: elige un peso con el que hagas ${e.repsMin}-${e.repsMax} reps sin forzar la técnica.`
+          : e.tipo === "tiempo" ? html`Objetivo: <b>${e.repsMax} s</b> por serie.` : html`Objetivo: <b>${e.repsMax} reps</b> por serie.`}</span></div>`}
         ${e.prev && html`<div class="prev small faint"><${Icon} n="history" size=${14}/> Última vez: ${e.prev.map((s) => `${fmtKg(s.kg)}×${s.reps}`).join(" · ")}</div>`}
 
         <div class="sets">
@@ -183,12 +210,30 @@ function Sesion({ sesion, setSesion, onFin }) {
             </button>
           </div>`)}
         </div>
+        ${esCoach(e) && e.sets.some((x) => x.done) && html`<div class="feel">
+          <span class="small dim">¿Cómo fue?</span>
+          ${[["facil", "Fácil"], ["justo", "Justo"], ["nopude", "No pude"]].map(([v, l]) => html`<button class="press ${e.sensacion === v ? "on " + v : ""}" onClick=${() => sentir(ei, v)}>${l}</button>`)}
+        </div>`}
         <div class="row" style="gap:8px;margin-top:10px">
           <button class="btn tiny ghost press" onClick=${() => serie(ei, 1)}><${Icon} n="plus" size=${15}/> Serie</button>
           ${e.sets.length > 1 && !e.sets[e.sets.length - 1].done && html`<button class="btn tiny ghost press" onClick=${() => serie(ei, -1)}><${Icon} n="minus" size=${15}/> Serie</button>`}
         </div>
       </section>`;
     })}
+
+    <${Sheet} abierto=${cambio != null} onClose=${() => setCambio(null)} titulo=${cambio != null ? `Cambiar ${sesion.ejercicios[cambio]?.nombre}` : ""}>
+      ${cambio != null && html`<div>
+        ${(sesion.ejercicios[cambio]?.alternativas || []).length > 0 && html`<p class="small dim" style="margin-bottom:10px">Alternativas que trabajan lo mismo:</p>
+          <div class="stack" style="margin-bottom:12px">
+            ${sesion.ejercicios[cambio].alternativas.map((a) => html`<button class="option press" onClick=${() => cambiarPor(cambio, a, enPlan && esCoach(sesion.ejercicios[cambio]))}><span>${a}</span><${Icon} n="chevron-right" size=${18}/></button>`)}
+          </div>
+          ${esCoach(sesion.ejercicios[cambio]) && html`<label class="check"><input type="checkbox" checked=${enPlan} onChange=${(e) => setEnPlan(e.target.checked)}/> Cambiarlo también en mi plan</label>`}`}
+        <button class="btn ghost press" onClick=${() => { const n = sesion.ejercicios[cambio].nombre; setCambio(null); setPreguntaCoach(`Estoy en el gym con ${n}: `); go("coach"); }}>
+          <${Icon} n="message-chatbot" size=${18}/> Preguntar al entrenador</button>
+        <button class="btn ghost danger-text press" style="margin-top:10px" onClick=${() => { const i = cambio; setCambio(null); quitarEjercicio(i); }}>
+          <${Icon} n="trash" size=${16}/> Quitar de esta sesión</button>
+      </div>`}
+    <//>
 
     <button class="btn ghost press" onClick=${anadirEjercicio} style="margin-bottom:12px"><${Icon} n="plus" size=${18}/> Añadir ejercicio</button>
     <button class="btn primary press" disabled=${!p.hechas} onClick=${terminar}>
@@ -211,6 +256,11 @@ function Resumen({ r, onClose }) {
       <div class="card stat"><b>${r.minutos}</b><span>min</span></div>
       <div class="card stat"><b>${r.volumen >= 10000 ? (r.volumen / 1000).toFixed(1).replace(".", ",") + "t" : r.volumen}</b><span>kg totales</span></div>
     </div>
+    ${r.cambios?.length > 0 && html`<section class="card" style="border-color:var(--lime)">
+      <div class="card-head"><span class="label lime">Próxima vez</span><${Icon} n="trending-up" size=${18} class="lime"/></div>
+      ${r.cambios.map((c) => html`<div class="kv"><span>${c.nombre}</span><b style="color:${c.sube ? "var(--lime)" : "var(--amber)"}">${fmtKg(c.antes)} → ${fmtKg(c.despues)} kg</b></div>`)}
+      <p class="small faint" style="margin-top:8px">Tu entrenador ajusta los pesos solo según lo que has hecho hoy.</p>
+    </section>`}
     ${r.nuevos.length > 0 && html`<section class="card" style="border-color:var(--amber)">
       <div class="card-head"><span class="label" style="color:var(--amber)">Nuevos récords</span><${Icon} n="trophy" size=${18} style="color:var(--amber)"/></div>
       ${r.nuevos.map((n) => html`<div class="kv"><span>${n.nombre}</span><b>${fmtKg(n.kg)} kg × ${n.reps}${n.antes != null ? html` <span class="faint small">(antes ${fmtKg(n.antes)})</span>` : ""}</b></div>`)}

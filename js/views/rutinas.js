@@ -8,7 +8,15 @@ export function Rutinas() {
 
   const setRutina = (id, fn) => update((d) => ({ ...d, rutinas: d.rutinas.map((r) => (r.id === id ? fn(r) : r)) }));
   const setEj = (rid, eid, campo, valor) =>
-    setRutina(rid, (r) => ({ ...r, ejercicios: r.ejercicios.map((e) => (e.id === eid ? { ...e, [campo]: valor } : e)) }));
+    setRutina(rid, (r) => ({ ...r, ejercicios: r.ejercicios.map((e) => {
+      if (e.id !== eid) return e;
+      const n = { ...e, [campo]: valor };
+      // Mantiene coherente el rango que usa el entrenador para la progresión
+      const m = campo === "reps" && e.repsMin != null && String(valor).match(/(\d+)\s*-\s*(\d+)/);
+      if (m) { n.repsMin = +m[1]; n.repsMax = +m[2]; }
+      if (campo === "notas" && e.tecnica != null) n.tecnica = valor;
+      return n;
+    }) }));
 
   function mover(rid, i, dir) {
     setRutina(rid, (r) => {

@@ -7,6 +7,7 @@ import { Setup } from "./views/setup.js";
 import { Hoy } from "./views/hoy.js";
 import { Gym, useAhora } from "./views/gym.js";
 import { Comer } from "./views/comer.js";
+import { Coach, useTareasCoach } from "./views/coach.js";
 import { Progreso } from "./views/progreso.js";
 import { Ajustes } from "./views/ajustes.js";
 import { Rutinas } from "./views/rutinas.js";
@@ -14,11 +15,11 @@ import { Rutinas } from "./views/rutinas.js";
 const TABS = [
   { id: "hoy", l: "Hoy", icon: "home" },
   { id: "gym", l: "Gym", icon: "barbell" },
-  { id: "comer", l: "Comer", icon: "salad" },
+  { id: "coach", l: "Coach", icon: "message-chatbot" },
   { id: "progreso", l: "Progreso", icon: "chart-line" },
   { id: "ajustes", l: "Ajustes", icon: "settings" },
 ];
-const VISTAS = { hoy: Hoy, gym: Gym, comer: Comer, progreso: Progreso, ajustes: Ajustes, rutinas: Rutinas };
+const VISTAS = { hoy: Hoy, gym: Gym, coach: Coach, comer: Comer, progreso: Progreso, ajustes: Ajustes, rutinas: Rutinas };
 
 // ── Aviso sonoro + vibración al terminar el descanso ──
 let audio = null;
@@ -74,6 +75,7 @@ function App() {
   const [sesion, setSesionState] = useState(() => ls.json(LS.session));
   const [rest, setRest] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [preguntaCoach, setPreguntaCoach] = useState(null);
   const avisoT = useRef();
 
   // Navegación con el botón "atrás" del móvil
@@ -109,13 +111,15 @@ function App() {
     setRest({ fin: Date.now() + seg * 1000, total: seg });
   }
 
+  const coach = useTareasCoach({ data, update, cuenta, toast });
+
   if (!cuenta) return html`<${Login} onLogin=${login} onLocal=${usarLocal} error=${authError}/>`;
   if (!data) return html`<main class="center-screen"><${Spinner}/><p class="faint small" style="margin-top:14px">Cargando tus datos…</p></main>`;
   if (!data.profile.setup) return html`<${Setup} data=${data} update=${update}/>`;
 
   const Vista = VISTAS[vista] || Hoy;
-  const ctx = { ...store, go, back, sesion, setSesion, startRest, stopRest: () => setRest(null), toast };
-  const tabActiva = vista === "rutinas" ? "ajustes" : vista;
+  const ctx = { ...store, go, back, sesion, setSesion, startRest, stopRest: () => setRest(null), toast, coach, preguntaCoach, setPreguntaCoach };
+  const tabActiva = vista === "rutinas" ? "ajustes" : vista === "comer" ? "hoy" : vista;
 
   return html`<${Ctx.Provider} value=${ctx}>
     ${store.sync === "error" && cuenta.modo === "neon" && html`<button class="sync-pill press" onClick=${() => store.subir()}><${Icon} n="cloud-off" size=${14}/> Sin sincronizar · reintentar</button>`}
@@ -127,6 +131,7 @@ function App() {
         <${Icon} n=${t.icon} size=${21}/>
         <span>${t.l}</span>
         ${t.id === "gym" && sesion && tabActiva !== "gym" && html`<i class="dot"/>`}
+        ${t.id === "coach" && (coach.ocupado || data.coach?.revisiones?.[0]?.vista === false) && tabActiva !== "coach" && html`<i class="dot"/>`}
       </button>`)}
     </nav>
   <//>`;

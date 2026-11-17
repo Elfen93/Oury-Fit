@@ -7,6 +7,9 @@ export const NEON = {
   rest: "https://ep-frosty-wildflower-a1axnxg9.apirest.ap-southeast-1.aws.neon.tech/neondb/rest/v1",
 };
 
+// Función del entrenador IA (Neon Functions)
+export const NEON_COACH = "https://br-nameless-credit-a1wax9gf-coach.compute.c-1.ap-southeast-1.aws.neon.tech/";
+
 // Solo para importar una vez los datos que quedaron en la hoja de Google.
 export const SHEETS_URL_ANTIGUA =
   "https://script.google.com/macros/s/AKfycbx9a53S1XnVF062jH6zPP9gsBruTWSlBn7EBbMq-YGVwTjuD-tiQ2MgfxMNMWqeK8f3ZQ/exec";
@@ -146,6 +149,17 @@ export function calcularMetas(profile, diasEntreno = 4) {
   };
 }
 
+export const coachVacio = () => ({
+  perfil: null,        // resultado de la entrevista
+  entrevista: [],      // [{rol:"coach"|"usuario", texto, opciones?}]
+  programa: null,      // {nombre, resumen, semanas, inicio}
+  estado: {},          // por nombre de ejercicio: {peso, fallos, sesiones, ultima}
+  memoria: [],         // notas que el entrenador recuerda
+  chat: [],            // conversación con el entrenador
+  revisiones: [],      // [{fecha, mensaje, cambios, vista}]
+  ultimaRevision: null,
+});
+
 export function datosPorDefecto() {
   return {
     version: VERSION,
@@ -159,6 +173,7 @@ export function datosPorDefecto() {
     agua: {},
     pesoCorporal: {},
     records: {},
+    coach: coachVacio(),
   };
 }
 
@@ -178,6 +193,7 @@ export function migrar(raw) {
     pesoCorporal: obj(r.pesoCorporal),
     records: obj(r.records),
     alimentos: Array.isArray(r.alimentos) ? r.alimentos : [],
+    coach: { ...coachVacio(), ...obj(r.coach) },
     version: VERSION,
   };
   // v4 tenía el nombre fijo "Oury"
@@ -191,7 +207,9 @@ export function migrar(raw) {
       corto: rt.corto || (rt.nombre || "Rutina").split(" ")[0],
       icon: String(rt.icon || "barbell").replace(/^ti-/, ""),
       acento: COLORES[rt.acento] ? rt.acento : "lime",
+      calentamiento: rt.calentamiento || "",
       ejercicios: (rt.ejercicios || []).map((e) => ({
+        ...e, // conserva campos del entrenador (tipo, repsMin, repsMax, incremento, tecnica, alternativas...)
         id: e.id || uid(),
         nombre: e.nombre || "Ejercicio",
         series: +e.series || 3,

@@ -4,6 +4,8 @@ App web (PWA) para registrar el gimnasio, la comida y el progreso. Pensada para 
 
 ## Qué hace
 
+- **Entrenador IA**: una entrevista inicial (objetivo, experiencia, días, tiempo, material, lesiones) y Claude diseña tu programa: ejercicios, series, rangos de repeticiones, pesos de partida, técnica y alternativas. En el gym la app te dice qué peso toca; al terminar aplica la **doble progresión** (si completas el rango sube el peso, si fallas dos veces lo baja un 10%). Cada semana el entrenador revisa tus datos y ajusta el plan solo. Puedes preguntarle en cualquier momento (máquina ocupada, molestias, técnica) y cambia el ejercicio en tu plan si hace falta.
+
 - **Hoy**: el entreno que toca según tu plan, calorías y macros del día, agua, peso y la semana de un vistazo.
 - **Gym**: registro serie a serie (kg y repeticiones), «última vez» de cada ejercicio, kilos que se copian solos a las series siguientes, descanso con aviso (vibración y pitido), récords personales y resumen al terminar. Se pueden añadir series o ejercicios sobre la marcha. Si cierras la app a mitad, la sesión sigue ahí.
 - **Rutinas**: crea y edita rutinas y ejercicios (series, reps, descanso, notas) y asigna cada día de la semana.
@@ -23,6 +25,15 @@ App web (PWA) para registrar el gimnasio, la comida y el progreso. Pensada para 
 
 `render.yaml` publica la carpeta como sitio estático en Render y reenvía `/neon-auth/*` al servidor de autenticación de Neon, para que la cookie de sesión sea del mismo dominio que la app. Hay que añadir la URL de Render como dominio de confianza en Neon Auth.
 
+### Entrenador (función en Neon)
+
+`coach/` es una Neon Function (Node 24) que verifica la sesión de Neon Auth, solo atiende a la web de OuryFit y llama a Claude (Opus 5.5) con salidas estructuradas. Acceso a Claude, en este orden:
+
+1. Clave propia de Anthropic guardada en la tabla `ouryfit_secretos` (fila `anthropic_api_key`), que solo puede leer la función.
+2. Si no hay clave, el AI Gateway de Neon (créditos prepagados en Neon).
+
+Desplegar: `coach/deploy.sh` (necesita `NEON_API_KEY`). Las reglas de progresión están en `js/entrenador.js`; las instrucciones del entrenador en `coach/src/prompts.ts`.
+
 ## Estructura
 
 Sin paso de compilación: HTML + módulos ES. Preact, htm y los iconos de Tabler van incluidos en `vendor/` y `js/icons.js` (no depende de CDNs).
@@ -33,6 +44,8 @@ css/app.css           estilos
 js/app.js             app, navegación, temporizador de descanso
 js/store.js           guardado local + sincronización
 js/neon.js            sesión (Neon Auth) y datos (Data API)
+js/entrenador.js      progresión automática y decisiones del entrenador
+coach/                función del entrenador IA (Neon Functions)
 js/data.js            configuración, rutinas y alimentos por defecto, migración
 js/calc.js            lógica: fechas, rachas, historial, récords, nutrición
 js/ui.js              componentes compartidos

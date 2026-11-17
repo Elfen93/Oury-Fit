@@ -4,7 +4,8 @@ import { hoy, rachas, rutinaDelDia, totalesDia, lunesDe, sumarDias, rutinaPorId,
 import { Icon, Ring, Bar, useApp, color } from "../ui.js";
 
 export function Hoy() {
-  const { data, update, go, sesion } = useApp();
+  const { data, update, go, sesion, cuenta, coach } = useApp();
+  const rev = data.coach?.revisiones?.[0];
   const k = hoy();
   const rut = rutinaDelDia(data, k);
   const hecho = data.registros[k];
@@ -35,6 +36,17 @@ export function Hoy() {
       </button>
     </header>
     <p class="quote">“${frase}”</p>
+
+    ${cuenta?.modo === "neon" && !data.coach?.programa && html`<section class="card coach-cta press fade" onClick=${() => go("coach")} role="button">
+      <div class="coach-ic"><${Icon} n="sparkles" size=${24}/></div>
+      <div style="flex:1"><b>${coach?.ocupado === "generar" ? "Tu entrenador está creando tu plan…" : data.coach?.perfil ? "Tu plan está pendiente" : "Conoce a tu entrenador"}</b>
+        <div class="small dim">${data.coach?.perfil ? "Toca para verlo." : "Unas preguntas y te prepara un plan a tu medida. Tú solo tienes que ir."}</div></div>
+      <${Icon} n="chevron-right" size=${18} class="faint"/>
+    </section>`}
+    ${rev && rev.vista === false && html`<section class="card coach-rev press fade" onClick=${() => go("coach")} role="button">
+      <div class="row" style="gap:10px;align-items:center;margin-bottom:8px"><${Icon} n="sparkles" size=${18} class="lime"/><span class="label lime">Tu entrenador ha revisado tu semana</span></div>
+      <p class="small" style="line-height:1.5">${rev.mensaje}</p>
+    </section>`}
 
     ${sesion
       ? html`<${TarjetaEntreno} acento=${sesion.acento} eyebrow="Sesión en curso" titulo=${sesion.rutina}

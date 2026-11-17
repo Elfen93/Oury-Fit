@@ -107,14 +107,19 @@ export function crearSesion(d, rutina, fecha = hoy()) {
     rutina: rutina.nombre,
     acento: rutina.acento,
     inicio: Date.now(),
+    calentamiento: rutina.calentamiento || "",
     ejercicios: rutina.ejercicios.map((e) => {
       const prev = ultimaVez(d, e.nombre, fecha);
+      const coach = e.repsMin != null && e.repsMax != null;
+      // Con entrenador: el peso lo fija la progresión. Sin él: lo de la última vez.
+      const pesoPrescrito = coach && (e.tipo || "peso") === "peso" ? (d.coach?.estado?.[e.nombre]?.peso ?? e.pesoInicial ?? 0) : null;
       return {
         id: e.id || uid(),
-        nombre: e.nombre, series: e.series, reps: e.reps, descanso: e.descanso, notas: e.notas,
+        nombre: e.nombre, series: e.series, reps: e.reps, descanso: e.descanso, notas: e.tecnica || e.notas,
+        ...(coach ? { tipo: e.tipo || "peso", repsMin: e.repsMin, repsMax: e.repsMax, incremento: e.incremento, alternativas: e.alternativas || [], pesoPrescrito, sensacion: null } : {}),
         prev: prev ? prev.sets.map((s) => ({ kg: s.kg, reps: s.reps })) : null,
         sets: Array.from({ length: e.series }, (_, i) => ({
-          kg: prev ? String(prev.sets[Math.min(i, prev.sets.length - 1)].kg ?? "") : "",
+          kg: pesoPrescrito ? String(pesoPrescrito) : prev ? String(prev.sets[Math.min(i, prev.sets.length - 1)].kg ?? "") : "",
           reps: "",
           done: false,
         })),
@@ -138,6 +143,7 @@ export function cerrarSesion(d, s) {
     .map((e) => ({
       nombre: e.nombre,
       sets: e.sets.filter((x) => x.done).map((x) => ({ kg: +x.kg || 0, reps: +x.reps || parseInt(e.reps) || 0 })),
+      ...(e.sensacion ? { sensacion: e.sensacion } : {}),
     }))
     .filter((e) => e.sets.length);
   const { hechas, volumen } = progresoSesion(s);

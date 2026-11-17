@@ -1,12 +1,12 @@
 // Service worker: la app funciona sin conexión (los datos se sincronizan al volver).
 // Sube CACHE cuando cambies archivos para forzar la actualización.
-const CACHE = "ouryfit-v5.1.0";
+const CACHE = "ouryfit-v5.2.0";
 const ARCHIVOS = [
   "./", "index.html", "manifest.webmanifest", "icon.svg", "css/app.css",
   "vendor/preact.js", "vendor/hooks.js", "vendor/htm.js",
-  "js/app.js", "js/lib.js", "js/neon.js", "js/data.js", "js/calc.js", "js/store.js", "js/ui.js", "js/icons.js",
+  "js/app.js", "js/lib.js", "js/neon.js", "js/data.js", "js/calc.js", "js/store.js", "js/ui.js", "js/icons.js", "js/entrenador.js",
   "js/views/login.js", "js/views/setup.js", "js/views/hoy.js", "js/views/gym.js",
-  "js/views/comer.js", "js/views/progreso.js", "js/views/ajustes.js", "js/views/rutinas.js",
+  "js/views/comer.js", "js/views/progreso.js", "js/views/ajustes.js", "js/views/rutinas.js", "js/views/coach.js",
 ];
 
 self.addEventListener("install", (e) => {
