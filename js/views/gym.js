@@ -2,7 +2,7 @@ import { html, useState, useEffect } from "../lib.js";
 import { uid } from "../data.js";
 import { hoy, rutinaDelDia, crearSesion, progresoSesion, cerrarSesion, fechaLarga, fmtKg } from "../calc.js";
 import { Icon, Bar, TopBar, useApp, color, Empty, Sheet } from "../ui.js";
-import { aplicarProgresion, esCoach, sustituir } from "../entrenador.js";
+import { aplicarProgresion, esCoach, sustituir, prescripcion, fmtObjetivo, unidadKg } from "../entrenador.js";
 
 export function useAhora(ms = 1000, activo = true) {
   const [, setT] = useState(0);
@@ -55,7 +55,9 @@ function Selector() {
 
     ${rut && html`<section class="card" style="margin-top:14px">
       <div class="card-head"><span class="label">${rut.nombre}</span></div>
-      ${rut.ejercicios.map((e) => html`<div class="kv"><span>${e.nombre}</span><b class="small" style="color:${color(rut.acento)}">${e.series}×${e.reps}</b></div>`)}
+      ${rut.ejercicios.map((e) => { const p = prescripcion(data, e); return html`<div class="kv"><span>${e.nombre}</span>
+        <span class="small" style="text-align:right;white-space:nowrap"><b style="color:${color(rut.acento)}">${fmtObjetivo(e)}</b>${p?.peso ? html`<br/><span class="dim">${fmtKg(p.peso)} ${unidadKg(e.nombre)}</span>` : ""}</span></div>`; })}
+      ${rut.ejercicios.some((e) => esCoach(e)) && html`<p class="small faint" style="margin-top:10px">Pesos de tu entrenador. Se ajustan solos según cómo te vaya cada sesión.</p>`}
       ${!rut.ejercicios.length && html`<p class="small faint">Esta rutina no tiene ejercicios todavía.</p>`}
       <button class="btn primary press" style="margin-top:16px" disabled=${!rut.ejercicios.length}
         onClick=${() => setSesion(crearSesion(data, rut, k))}><${Icon} n="player-play-filled" size=${18}/> Empezar</button>
@@ -188,7 +190,7 @@ function Sesion({ sesion, setSesion, onFin }) {
         <div class="row" style="justify-content:space-between;align-items:flex-start;gap:8px">
           <div style="min-width:0">
             <h3>${e.nombre}</h3>
-            <div class="small dim"><b style="color:${ac}">${e.series}×${e.reps}${e.pesoPrescrito ? ` · ${fmtKg(e.pesoPrescrito)} kg` : ""}</b> · ${e.descanso}s descanso</div>
+            <div class="small dim"><b style="color:${ac}">${fmtObjetivo(e)}${e.pesoPrescrito ? ` · ${fmtKg(e.pesoPrescrito)} ${unidadKg(e.nombre)}` : ""}</b>${e.tipo === "tiempo" && e.repsMax >= 120 ? "" : ` · ${e.descanso}s descanso`}</div>
           </div>
           <div class="row" style="gap:6px;flex-shrink:0">
             ${rec && html`<span class="pr"><${Icon} n="trophy" size=${13}/>${fmtKg(rec.peso)}</span>`}
@@ -198,9 +200,9 @@ function Sesion({ sesion, setSesion, onFin }) {
         </div>
         ${notas[ei] && html`<div class="tip">${e.notas}</div>`}
         ${esCoach(e) && html`<div class="goal small"><${Icon} n="target" size=${15}/><span>${e.tipo === "peso" && e.pesoPrescrito
-          ? html`Objetivo: <b>${e.repsMax} reps</b> en cada serie con <b>${fmtKg(e.pesoPrescrito)} kg</b>. Si llegas, la próxima vez sube.`
+          ? html`Objetivo: <b>${e.repsMax} reps</b> en cada serie con <b>${fmtKg(e.pesoPrescrito)} ${unidadKg(e.nombre)}</b>. Si llegas, la próxima vez sube.`
           : e.tipo === "peso" ? html`Primera vez: elige un peso con el que hagas ${e.repsMin}-${e.repsMax} reps sin forzar la técnica.`
-          : e.tipo === "tiempo" ? html`Objetivo: <b>${e.repsMax} s</b> por serie.` : html`Objetivo: <b>${e.repsMax} reps</b> por serie.`}</span></div>`}
+          : e.tipo === "tiempo" ? (e.repsMax >= 120 ? html`Objetivo: <b>${Math.round(e.repsMin / 60)}-${Math.round(e.repsMax / 60)} minutos</b> a ritmo constante. Márcalo cuando lo termines.` : html`Objetivo: <b>${e.repsMax} s</b> por serie.`) : html`Objetivo: <b>${e.repsMax} reps</b> por serie.`}</span></div>`}
         ${e.prev && html`<div class="prev small faint"><${Icon} n="history" size=${14}/> Última vez: ${e.prev.map((s) => `${fmtKg(s.kg)}×${s.reps}`).join(" · ")}</div>`}
 
         <div class="sets">

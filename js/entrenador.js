@@ -5,6 +5,17 @@ import { hoy, sumarDias, lunesDe, diffDias, r1, diaSemana } from "./calc.js";
 import { token, SinSesion } from "./neon.js";
 
 export const esCoach = (e) => e && e.repsMin != null && e.repsMax != null;
+
+// "3×6-8", o "10-15 min" para cardio largo, o "30-45 s"
+export function fmtObjetivo(e) {
+  if (e.tipo === "tiempo" && e.repsMin != null) {
+    if (e.repsMax >= 120) return `${Math.round(e.repsMin / 60)}-${Math.round(e.repsMax / 60)} min`;
+    return `${e.series}×${e.repsMin}-${e.repsMax} s`;
+  }
+  return `${e.series}×${e.reps}`;
+}
+// Con mancuernas el peso es de cada una
+export const unidadKg = (nombre) => (/mancuerna/i.test(nombre || "") ? "kg c/u" : "kg");
 const redondear = (kg) => Math.max(0, Math.round(kg * 2) / 2); // a 0,5 kg
 
 // Peso y objetivo que tocan hoy para un ejercicio del plan
