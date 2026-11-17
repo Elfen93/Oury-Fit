@@ -25,6 +25,7 @@ export const Sesion = z.object({
   acento: z.enum(ACENTOS),
   calentamiento: z.string().describe("Calentamiento de 5-8 minutos en una o dos frases"),
   ejercicios: z.array(Ejercicio),
+  minima: z.array(z.string()).describe("Versión corta para días sin ganas o sin tiempo (unos 25 min): nombres exactos de 2-3 ejercicios de esta sesión, los más importantes"),
 });
 
 export const Programa = z.object({
@@ -61,6 +62,8 @@ export const Revision = z.object({
   pesos: z.array(z.object({ ejercicio: z.string(), peso: z.number() })).describe("Solo si corriges el peso de trabajo de algún ejercicio"),
   programa: Programa.nullable().describe("Programa nuevo completo si cambias ejercicios, sesiones o plan; null si se mantiene"),
   memoria: z.array(z.string()).describe("Notas nuevas que conviene recordar sobre el usuario"),
+  libreta: z.string().describe("Tu libreta sobre este cliente, reescrita entera con lo nuevo (ver instrucciones)"),
+  capitulos: z.array(z.object({ mes: z.string(), titulo: z.string(), texto: z.string() })).describe("Capítulos de los meses pendientes que se te piden; vacío si no hay"),
 });
 
 export const Respuesta = z.object({

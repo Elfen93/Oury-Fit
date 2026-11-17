@@ -111,7 +111,7 @@ function App() {
     setRest({ fin: Date.now() + seg * 1000, total: seg });
   }
 
-  const coach = useTareasCoach({ data, update, cuenta, toast });
+  const coach = useTareasCoach({ data, update, cuenta, toast, subir: store.subir });
 
   if (!cuenta) return html`<${Login} onLogin=${login} onLocal=${usarLocal} error=${authError}/>`;
   if (!data) return html`<main class="center-screen"><${Spinner}/><p class="faint small" style="margin-top:14px">Cargando tus datos…</p></main>`;

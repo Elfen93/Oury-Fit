@@ -158,6 +158,8 @@ export const coachVacio = () => ({
   chat: [],            // conversación con el entrenador
   revisiones: [],      // [{fecha, mensaje, cambios, vista}]
   ultimaRevision: null,
+  libreta: "",         // memoria de trabajo del entrenador, reescrita en cada revisión
+  capitulos: [],       // [{mes:"YYYY-MM", titulo, texto}] permanentes
 });
 
 export function datosPorDefecto() {

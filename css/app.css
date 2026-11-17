@@ -307,3 +307,6 @@ details.more[open] summary::before { content: "▾ "; }
 .mem .icon-btn { display: inline-flex; vertical-align: middle; width: 22px; height: 22px; margin-left: 4px; }
 .logo.pulse { animation: pulse 1.6s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { transform: scale(1); box-shadow: 0 0 30px #c4f54244; } 50% { transform: scale(1.06); box-shadow: 0 0 50px #c4f54288; } }
+.libreta { white-space: pre-wrap; font-size: 13.5px; line-height: 1.55; color: var(--dim); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.foto-prev { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.foto-prev img { width: 64px; height: 64px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }

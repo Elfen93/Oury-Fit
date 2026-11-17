@@ -3,13 +3,13 @@ import { hoy, fechaRelativa, fmtKg, diffDias } from "../calc.js";
 import { DIAS } from "../data.js";
 import {
   llamar, basicos, programaActual, aplicarPrograma, aplicarRevision, sustituir, anadirMemoria,
-  contextoRevision, revisionPendiente, SinAcceso,
+  contextoRevision, revisionPendiente, SinAcceso, camino,
 } from "../entrenador.js";
 import { SinSesion } from "../neon.js";
 import { Icon, TopBar, Section, Spinner, useApp, color } from "../ui.js";
 
 // ── Tareas largas del entrenador (viven en App para sobrevivir a cambios de pantalla) ──
-export function useTareasCoach({ data, update, cuenta, toast }) {
+export function useTareasCoach({ data, update, cuenta, toast, subir }) {
   const [ocupado, setOcupado] = useState(null); // null | "generar" | "revision"
   const [error, setError] = useState(null);
   const lanzada = useRef(false);
@@ -27,13 +27,15 @@ export function useTareasCoach({ data, update, cuenta, toast }) {
   }
 
   const generar = () => ejecutar("generar", async () => {
+    await subir(); // el entrenador consulta el historial guardado en la base de datos
     const d = ref.current;
-    const prog = await llamar("generar", { basicos: basicos(d), perfil: d.coach.perfil, memoria: d.coach.memoria, historial: contextoRevision(d).sesiones.slice(-10) });
+    const prog = await llamar("generar", { basicos: basicos(d), perfil: d.coach.perfil, memoria: d.coach.memoria, libreta: d.coach.libreta || "", capitulos: (d.coach.capitulos || []).map((c) => ({ mes: c.mes, titulo: c.titulo })) });
     update((x) => aplicarPrograma(x, prog));
     toast("¡Tu plan está listo!", "sparkles");
   });
 
   const revisar = () => ejecutar("revision", async () => {
+    await subir();
     const rev = await llamar("revision", contextoRevision(ref.current));
     update((x) => aplicarRevision(x, rev));
     toast("Tu entrenador ha revisado tu semana", "sparkles");
@@ -138,7 +140,10 @@ function Generando() {
 
 // ── Panel principal ──
 function Panel() {
-  const { data, update, coach: tareas, preguntaCoach, setPreguntaCoach, sesion, toast } = useApp();
+  const { data, update, coach: tareas, preguntaCoach, setPreguntaCoach, sesion, toast, subir } = useApp();
+  const [foto, setFoto] = useState(null); // {media_type, data, url}
+  const [verLibreta, setVerLibreta] = useState(false);
+  const [capAbierto, setCapAbierto] = useState(null);
   const c = data.coach;
   const [texto, setTexto] = useState(preguntaCoach || "");
   const [esperando, setEsperando] = useState(false);
@@ -155,17 +160,20 @@ function Panel() {
 
   async function enviar(t) {
     t = (t ?? texto).trim();
+    const imagen = foto;
+    if (imagen && !t) t = "¿Qué tal mi técnica en esta foto?";
     if (!t || esperando) return;
-    setTexto(""); setError(null);
-    const chat = [...c.chat, { rol: "usuario", texto: t, fecha: hoy() }];
+    setTexto(""); setError(null); setFoto(null);
+    const chat = [...c.chat, { rol: "usuario", texto: imagen ? `📷 ${t}` : t, fecha: hoy() }];
     update((d) => ({ ...d, coach: { ...d.coach, chat } }));
     setEsperando(true);
     try {
+      await subir().catch(() => {});
       const ahora = sesion ? { sesion: sesion.rutina, ejercicios: sesion.ejercicios.map((e) => e.nombre) } : null;
       const r = await llamar("pregunta", {
         hoy: `${hoy()} (${DIAS[(new Date().getDay() + 6) % 7]})`, basicos: basicos(data), perfil: c.perfil,
-        memoria: c.memoria, programa: programaActual(data), ahora,
-      }, chat.slice(-16));
+        libreta: c.libreta || "", memoria: c.memoria, programa: programaActual(data), ahora,
+      }, chat.slice(-16), imagen ? { media_type: imagen.media_type, data: imagen.data } : null);
       update((d) => {
         let nd = { ...d, coach: anadirMemoria({ ...d.coach, chat: [...chat, { rol: "coach", texto: r.respuesta, fecha: hoy(), dolor: r.dolor, cambio: r.sustitucion ? `${r.sustitucion.ejercicioOriginal} → ${r.sustitucion.nuevo.nombre}` : null }].slice(-60) }, r.memoria) };
         if (r.sustitucion) nd = sustituir(nd, r.sustitucion);
@@ -224,10 +232,16 @@ function Panel() {
       ${c.chat.length === 0 && html`<div class="quick" style="margin:0 0 10px">
         ${["La máquina está ocupada", "Me molesta algo", "Hoy tengo poco tiempo", "¿Cómo hago el primer ejercicio?"].map((q) => html`<button class="press" onClick=${() => enviar(q)}>${q}</button>`)}
       </div>`}
-      <${Caja} valor=${texto} setValor=${setTexto} onEnviar=${() => enviar()} deshabilitado=${esperando} placeholder="Escribe a tu entrenador…"/>
+      ${foto && html`<div class="foto-prev"><img src=${foto.url} alt="Foto para el entrenador"/><button class="icon-btn xs press" onClick=${() => setFoto(null)} aria-label="Quitar foto"><${Icon} n="x" size=${14}/></button><span class="small dim">Se envía para analizarla y no se guarda.</span></div>`}
+      <${Caja} valor=${texto} setValor=${setTexto} onEnviar=${() => enviar()} deshabilitado=${esperando} placeholder=${foto ? "¿Qué quieres que mire? (opcional)" : "Escribe a tu entrenador…"} onFoto=${async (f) => { try { setFoto(await prepararFoto(f)); } catch { toast("No se pudo leer la foto", "alert-triangle"); } }} conFoto=${!foto} hayFoto=${!!foto}/>
     <//>
 
+    <${Camino} data=${data} capAbierto=${capAbierto} setCapAbierto=${setCapAbierto}/>
+
     <${Section} titulo="Lo que sabe de ti">
+      ${c.libreta ? html`<button class="link" style="margin-bottom:10px" onClick=${() => setVerLibreta(!verLibreta)}>${verLibreta ? "Ocultar su libreta" : "Leer su libreta sobre ti"}</button>
+        ${verLibreta && html`<div class="libreta">${c.libreta}</div>`}`
+        : html`<p class="small faint" style="margin-bottom:10px">Tras la primera revisión semanal escribirá su libreta sobre ti: tus patrones, qué te funciona y qué está probando.</p>`}
       <div class="small dim" style="line-height:1.55">
         <div><b class="dim">Objetivo:</b> ${c.perfil.objetivo}</div>
         <div><b class="dim">Disponibilidad:</b> ${c.perfil.dias} días · ${c.perfil.minutos} min</div>
@@ -240,10 +254,49 @@ function Panel() {
   </div>`;
 }
 
-function Caja({ valor, setValor, onEnviar, deshabilitado, placeholder }) {
+// Reduce la foto a 1280 px (JPEG) para enviarla rápido y barata
+async function prepararFoto(file) {
+  const bmp = await createImageBitmap(file);
+  const escala = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const cv = document.createElement("canvas");
+  cv.width = Math.round(bmp.width * escala); cv.height = Math.round(bmp.height * escala);
+  cv.getContext("2d").drawImage(bmp, 0, 0, cv.width, cv.height);
+  const url = cv.toDataURL("image/jpeg", 0.82);
+  return { media_type: "image/jpeg", data: url.split(",")[1], url };
+}
+
+function Camino({ data, capAbierto, setCapAbierto }) {
+  const cm = camino(data);
+  const caps = [...(data.coach.capitulos || [])].reverse();
+  if (!cm.sesiones) return null;
+  const mes = (m) => new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric" }).format(new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1));
+  return html`<${Section} titulo="Tu camino" extra=${html`<span class="small dim">${cm.sesiones} sesiones desde ${fechaRelativa(cm.desde)}</span>`}>
+    ${cm.ejercicios.length > 0 && html`<div class="camino">
+      ${cm.ejercicios.map((x) => { const dif = x.actual.kg - x.inicio.kg; return html`<div class="kv">
+        <span>${x.nombre}</span>
+        <span class="small"><span class="faint">${fmtKg(x.inicio.kg)}×${x.inicio.reps} →</span> <b>${fmtKg(x.actual.kg)}×${x.actual.reps}</b>${dif ? html` <b style="color:${dif > 0 ? "var(--lime)" : "var(--amber)"}">${dif > 0 ? "+" : ""}${fmtKg(dif)}</b>` : ""}</span>
+      </div>`; })}
+    </div>`}
+    ${caps.length > 0 ? html`<div class="label" style="margin:16px 0 8px">Capítulos</div>
+      ${caps.map((cp) => html`<div class="hist">
+        <button class="hist-row" onClick=${() => setCapAbierto(capAbierto === cp.mes ? null : cp.mes)}>
+          <span class="faint small" style="width:92px;text-align:left">${mes(cp.mes).replace(/^./, (x) => x.toUpperCase())}</span>
+          <b style="flex:1;text-align:left">${cp.titulo}</b>
+          <${Icon} n=${capAbierto === cp.mes ? "chevron-up" : "chevron-down"} size=${16} class="faint"/>
+        </button>
+        ${capAbierto === cp.mes && html`<p class="small" style="line-height:1.55;padding-bottom:12px;white-space:pre-wrap">${cp.texto}</p>`}
+      </div>`)}`
+      : html`<p class="small faint" style="margin-top:10px">Al cerrar cada mes, tu entrenador escribe un capítulo de tu historia. Así ninguno de los dos pierde de vista el camino.</p>`}
+  <//>`;
+}
+
+function Caja({ valor, setValor, onEnviar, deshabilitado, placeholder, onFoto, conFoto, hayFoto }) {
+  const input = useRef();
   return html`<form class="chat-box" onSubmit=${(e) => { e.preventDefault(); onEnviar(); }}>
+    ${onFoto && conFoto && html`<button type="button" class="icon-btn press" onClick=${() => input.current.click()} aria-label="Enviar foto de técnica"><${Icon} n="camera" size=${19}/></button>
+      <input ref=${input} type="file" accept="image/*" capture="environment" style="display:none" onChange=${(e) => { const f = e.target.files?.[0]; if (f) onFoto(f); e.target.value = ""; }}/>`}
     <textarea rows="1" placeholder=${placeholder} value=${valor} onInput=${(e) => { setValor(e.target.value); e.target.style.height = "auto"; e.target.style.height = Math.min(120, e.target.scrollHeight) + "px"; }}
       onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onEnviar(); } }}/>
-    <button type="submit" class="icon-btn press filled" disabled=${deshabilitado || !valor.trim()} aria-label="Enviar"><${Icon} n="send" size=${19}/></button>
+    <button type="submit" class="icon-btn press filled" disabled=${deshabilitado || (!valor.trim() && !hayFoto)} aria-label="Enviar"><${Icon} n="send" size=${19}/></button>
   </form>`;
 }

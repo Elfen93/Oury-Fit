@@ -59,6 +59,12 @@ function Selector() {
       ${!rut.ejercicios.length && html`<p class="small faint">Esta rutina no tiene ejercicios todavía.</p>`}
       <button class="btn primary press" style="margin-top:16px" disabled=${!rut.ejercicios.length}
         onClick=${() => setSesion(crearSesion(data, rut, k))}><${Icon} n="player-play-filled" size=${18}/> Empezar</button>
+      ${rut.minima?.length > 0 && html`<button class="btn ghost press" style="margin-top:10px" onClick=${() => {
+          const corta = { ...rut, nombre: `${rut.nombre} (versión corta)`, ejercicios: rut.ejercicios.filter((e) => rut.minima.includes(e.nombre)) };
+          if (!corta.ejercicios.length) corta.ejercicios = rut.ejercicios.slice(0, 3);
+          setSesion(crearSesion(data, corta, k));
+        }}><${Icon} n="clock" size=${17}/> Versión corta · ${(rut.ejercicios.filter((e) => rut.minima.includes(e.nombre)).length || 3)} ejercicios</button>
+        <p class="small faint" style="text-align:center;margin-top:8px">¿Sin ganas o sin tiempo? La corta también cuenta. Lo importante es ir.</p>`}
     </section>`}
   </div>`;
 }

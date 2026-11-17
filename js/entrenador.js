@@ -64,6 +64,7 @@ export function aplicarPrograma(d, prog) {
     icon: s.icon || "barbell",
     acento: COLORES[s.acento] ? s.acento : "lime",
     calentamiento: s.calentamiento || "",
+    minima: Array.isArray(s.minima) ? s.minima : [],
     ejercicios: s.ejercicios.map((e) => ({
       id: uid(),
       nombre: e.nombre,
@@ -143,6 +144,11 @@ export function aplicarRevision(d, rev) {
   }
   let coach = { ...nd.coach, estado, ultimaRevision: hoy() };
   coach = anadirMemoria(coach, rev.memoria);
+  if (rev.libreta?.trim()) coach.libreta = rev.libreta.trim();
+  // Capítulos: permanentes; si ya existe uno de ese mes, no se sobrescribe
+  const meses = new Set((coach.capitulos || []).map((c) => c.mes));
+  const nuevos = (rev.capitulos || []).filter((c) => /^\d{4}-\d{2}$/.test(c.mes) && !meses.has(c.mes));
+  coach.capitulos = [...(coach.capitulos || []), ...nuevos].sort((a, b) => a.mes.localeCompare(b.mes));
   coach.revisiones = [{ fecha: hoy(), mensaje: rev.mensaje, cambios: rev.cambios || [], vista: false }, ...(coach.revisiones || [])].slice(0, 12);
   return { ...nd, coach };
 }
@@ -197,13 +203,39 @@ export function contextoRevision(d) {
     sesiones,
     chat: d.coach.chat.slice(-20),
     revisiones: d.coach.revisiones.slice(0, 3).map((r) => ({ fecha: r.fecha, mensaje: r.mensaje })),
+    libreta: d.coach.libreta || "",
+    capitulos: (d.coach.capitulos || []).map((c) => ({ mes: c.mes, titulo: c.titulo })),
+    capitulosPendientes: capitulosPendientes(d, k),
   };
+}
+
+// Meses cerrados con entrenos y sin capítulo (los 3 más antiguos por revisión)
+export function capitulosPendientes(d, ref = hoy()) {
+  const mesActual = ref.slice(0, 7);
+  const hechos = new Set((d.coach?.capitulos || []).map((c) => c.mes));
+  const meses = [...new Set(Object.keys(d.registros).map((f) => f.slice(0, 7)))].filter((m) => m < mesActual && !hechos.has(m)).sort();
+  return meses.slice(0, 3);
+}
+
+// El camino recorrido: primera vez frente a ahora en los ejercicios más hechos
+export function camino(d) {
+  const fechas = Object.keys(d.registros).sort();
+  const porEj = new Map();
+  for (const f of fechas) for (const e of d.registros[f].ejercicios || []) {
+    if (!e.sets?.length) continue;
+    const top = e.sets.reduce((a, s) => (s.kg > a.kg || (s.kg === a.kg && s.reps > a.reps) ? s : a), e.sets[0]);
+    const x = porEj.get(e.nombre);
+    if (!x) porEj.set(e.nombre, { nombre: e.nombre, primera: f, inicio: top, ultima: f, actual: top, veces: 1 });
+    else { x.ultima = f; x.actual = top; x.veces++; }
+  }
+  const ejercicios = [...porEj.values()].filter((x) => x.veces >= 2 && x.inicio.kg > 0).sort((a, b) => b.veces - a.veces).slice(0, 6);
+  return { sesiones: fechas.length, desde: fechas[0] || null, ejercicios };
 }
 
 // ── Llamada a la función del entrenador ──
 export class SinAcceso extends Error {}
 
-export async function llamar(accion, contexto, chat) {
+export async function llamar(accion, contexto, chat, imagen = null) {
   const t = await token();
   if (!t) throw new SinSesion("sin sesión");
   let r;
@@ -211,7 +243,7 @@ export async function llamar(accion, contexto, chat) {
     r = await fetch(NEON_COACH, {
       method: "POST",
       headers: { Authorization: `Bearer ${t}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ accion, contexto, chat }),
+      body: JSON.stringify({ accion, contexto, chat, ...(imagen ? { imagen } : {}) }),
     });
   } catch {
     throw new Error("Sin conexión. El entrenador necesita internet.");
