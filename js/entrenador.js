@@ -1,7 +1,7 @@
 // ── Entrenador: progresión automática, contexto para la IA y aplicación de sus decisiones ──
 import { NEON_COACH, uid, DIAS, COLORES, coachVacio } from "./data.js";
 export { coachVacio };
-import { hoy, sumarDias, lunesDe, diffDias, r1, diaSemana } from "./calc.js";
+import { hoy, sumarDias, lunesDe, diffDias, r1, diaSemana, modoEjercicio, fmtSeries } from "./calc.js";
 import { token, SinSesion } from "./neon.js";
 
 export const esCoach = (e) => e && e.repsMin != null && e.repsMax != null;
@@ -201,7 +201,7 @@ export function contextoRevision(d) {
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([fecha, r]) => ({
       fecha, dia: DIAS[diaSemana(fecha)], rutina: r.rutina,
-      ejercicios: (r.ejercicios || []).map((e) => ({ n: e.nombre, series: e.sets.map((s) => `${s.kg}x${s.reps}`).join(" "), sensacion: e.sensacion || null })),
+      ejercicios: (r.ejercicios || []).map((e) => ({ n: e.nombre, series: fmtSeries(modoEjercicio(e), e.sets), sensacion: e.sensacion || null })),
     }));
   return {
     hoy: `${k} (${DIAS[diaSemana(k)]})`,

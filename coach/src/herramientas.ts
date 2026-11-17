@@ -2,7 +2,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
 type Serie = { kg: number; reps: number };
-type EjReg = { nombre: string; sets: Serie[]; sensacion?: string };
+type EjReg = { nombre: string; sets: Serie[]; sensacion?: string; modo?: "corporal" | "iso" | "cardio" };
 type Registro = { rutina: string; sets?: number; minutos?: number; volumen?: number; ejercicios?: EjReg[] };
 export type Datos = {
   registros?: Record<string, Registro>;
@@ -18,6 +18,15 @@ const diaSemana = (k: string) => (aFecha(k).getUTCDay() + 6) % 7;
 const lunes = (k: string) => { const d = aFecha(k); d.setUTCDate(d.getUTCDate() - diaSemana(k)); return clave(d); };
 const e1rm = (kg: number, reps: number) => (!kg ? 0 : reps <= 1 ? kg : kg * (1 + Math.min(reps, 15) / 30));
 const r1 = (n: number) => Math.round(n * 10) / 10;
+// Serie como texto según el tipo (en iso y cardio, reps son segundos)
+function fmt(e: EjReg) {
+  return e.sets.map((s) => {
+    if (e.modo === "cardio") return `${Math.round(s.reps / 60)} min`;
+    if (e.modo === "iso") return `${s.reps} s`;
+    if (e.modo === "corporal" || !s.kg) return `${s.reps} reps`;
+    return `${s.kg}kg×${s.reps}`;
+  }).join(" ");
+}
 const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
 
 function registros(d: Datos) {
@@ -97,9 +106,9 @@ export function ejecutar(nombre: string, input: any, d: Datos): unknown {
     case "resumen_ejercicios": {
       const m = new Map<string, { primera: string; ultima: string; sesiones: number; inicio: string; actual: string; mejorE1rm: number }>();
       for (const [fecha, r] of regs) for (const e of r.ejercicios || []) {
-        if (!e.sets?.length) continue;
+        if (!e.sets?.length || e.modo === "cardio") continue;
         const top = e.sets.reduce((a, s) => (s.kg > a.kg || (s.kg === a.kg && s.reps > a.reps) ? s : a), e.sets[0]);
-        const txt = `${top.kg}kg×${top.reps}`;
+        const txt = fmt({ ...e, sets: [top] });
         const x = m.get(e.nombre);
         const best = Math.max(...e.sets.map((s) => e1rm(s.kg, s.reps)));
         if (!x) m.set(e.nombre, { primera: fecha, ultima: fecha, sesiones: 1, inicio: txt, actual: txt, mejorE1rm: r1(best) });
@@ -113,7 +122,7 @@ export function ejecutar(nombre: string, input: any, d: Datos): unknown {
       for (const [fecha, r] of regs) {
         if (!enRango(fecha, input?.desde, input?.hasta)) continue;
         for (const e of r.ejercicios || []) if (norm(e.nombre).includes(q))
-          out.push({ fecha, ejercicio: e.nombre, series: e.sets.map((s) => `${s.kg}×${s.reps}`).join(" "), sensacion: e.sensacion ?? null });
+          out.push({ fecha, ejercicio: e.nombre, series: fmt(e), sensacion: e.sensacion ?? null });
       }
       return out.length ? out.slice(-80) : { aviso: "No hay registros de ese ejercicio con ese nombre." };
     }
@@ -148,7 +157,7 @@ export function ejecutar(nombre: string, input: any, d: Datos): unknown {
         .slice(-40)
         .map(([fecha, r]) => ({
           fecha, dia: DIAS[diaSemana(fecha)], rutina: r.rutina, minutos: r.minutos ?? null,
-          ejercicios: (r.ejercicios || []).map((e) => ({ n: e.nombre, series: e.sets.map((s) => `${s.kg}×${s.reps}`).join(" "), sensacion: e.sensacion ?? null })),
+          ejercicios: (r.ejercicios || []).map((e) => ({ n: e.nombre, series: fmt(e), sensacion: e.sensacion ?? null })),
         }));
     case "leer_capitulo": {
       const c = (d.coach?.capitulos || []).find((x) => x.mes === input?.mes);

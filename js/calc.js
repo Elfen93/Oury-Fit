@@ -26,6 +26,24 @@ export function fechaRelativa(k) {
 export const r1 = (n) => Math.round(n * 10) / 10;
 export const fmtKg = (n) => (Number.isInteger(+n) ? String(+n) : r1(+n).toString().replace(".", ","));
 
+// Cómo se registra cada ejercicio: peso (kg + reps), corporal (reps), iso (segundos), cardio (minutos)
+export function modoEjercicio(e) {
+  if (!e) return "peso";
+  if (e.modo) return e.modo;
+  if (e.tipo === "tiempo") return (e.repsMax ?? 0) >= 120 ? "cardio" : "iso";
+  if (e.tipo === "corporal") return "corporal";
+  return "peso";
+}
+// Una serie como texto según el modo (en los registros, reps = segundos en iso y cardio)
+export function fmtSerie(modo, s) {
+  const reps = +s.reps || 0;
+  if (modo === "cardio") return `${+(reps / 60).toFixed(1)} min`.replace(".", ",");
+  if (modo === "iso") return `${reps} s`;
+  if (modo === "corporal") return `${reps} reps`;
+  return `${fmtKg(s.kg)}×${reps}`;
+}
+export const fmtSeries = (modo, sets) => (sets || []).map((s) => fmtSerie(modo, s)).join(" · ");
+
 // ── Plan y rachas ──────────────────────────────────────────────────────
 export const rutinaPorId = (d, id) => d.rutinas.find((r) => r.id === id) || null;
 export const rutinaDelDia = (d, k) => rutinaPorId(d, d.plan[diaSemana(k)]);
@@ -95,7 +113,7 @@ export function ultimaVez(d, nombre, hasta = "9999-12-31") {
 
 export function ejerciciosConHistorial(d) {
   const set = new Map();
-  for (const reg of Object.values(d.registros)) for (const e of reg.ejercicios || []) if (e.sets?.length) set.set(e.nombre, (set.get(e.nombre) || 0) + 1);
+  for (const reg of Object.values(d.registros)) for (const e of reg.ejercicios || []) if (e.sets?.some((s) => +s.kg > 0)) set.set(e.nombre, (set.get(e.nombre) || 0) + 1);
   return [...set.entries()].sort((a, b) => b[1] - a[1]).map(([n]) => n);
 }
 
@@ -118,8 +136,8 @@ export function crearSesion(d, rutina, fecha = hoy()) {
         nombre: e.nombre, series: e.series, reps: e.reps, descanso: e.descanso, notas: e.tecnica || e.notas,
         ...(coach ? { tipo: e.tipo || "peso", repsMin: e.repsMin, repsMax: e.repsMax, incremento: e.incremento, alternativas: e.alternativas || [], pesoPrescrito, sensacion: null } : {}),
         prev: prev ? prev.sets.map((s) => ({ kg: s.kg, reps: s.reps })) : null,
-        sets: Array.from({ length: e.series }, (_, i) => ({
-          kg: pesoPrescrito ? String(pesoPrescrito) : prev ? String(prev.sets[Math.min(i, prev.sets.length - 1)].kg ?? "") : "",
+        sets: Array.from({ length: modoEjercicio(e) === "cardio" ? 1 : e.series }, (_, i) => ({
+          kg: modoEjercicio(e) !== "peso" ? "" : pesoPrescrito ? String(pesoPrescrito) : prev ? String(prev.sets[Math.min(i, prev.sets.length - 1)].kg ?? "") : "",
           reps: "",
           done: false,
         })),
@@ -144,6 +162,7 @@ export function cerrarSesion(d, s) {
       nombre: e.nombre,
       sets: e.sets.filter((x) => x.done).map((x) => ({ kg: +x.kg || 0, reps: +x.reps || parseInt(e.reps) || 0 })),
       ...(e.sensacion ? { sensacion: e.sensacion } : {}),
+      ...(modoEjercicio(e) !== "peso" ? { modo: modoEjercicio(e) } : {}),
     }))
     .filter((e) => e.sets.length);
   const { hechas, volumen } = progresoSesion(s);

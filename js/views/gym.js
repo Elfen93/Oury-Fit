@@ -1,6 +1,6 @@
 import { html, useState, useEffect } from "../lib.js";
 import { uid } from "../data.js";
-import { hoy, rutinaDelDia, crearSesion, progresoSesion, cerrarSesion, fechaLarga, fmtKg } from "../calc.js";
+import { hoy, rutinaDelDia, crearSesion, progresoSesion, cerrarSesion, fechaLarga, fmtKg, modoEjercicio, fmtSeries } from "../calc.js";
 import { Icon, Bar, TopBar, useApp, color, Empty, Sheet } from "../ui.js";
 import { aplicarProgresion, esCoach, sustituir, prescripcion, fmtObjetivo, unidadKg } from "../entrenador.js";
 
@@ -76,6 +76,7 @@ function Sesion({ sesion, setSesion, onFin }) {
   const ahora = useAhora(1000);
   const [notas, setNotas] = useState({});
   const [cambio, setCambio] = useState(null); // índice del ejercicio a cambiar
+  const [cronoActivo, setCronoActivo] = useState(null); // {ei, si, inicio}
   const [enPlan, setEnPlan] = useState(true);
   const ac = color(sesion.acento);
   const p = progresoSesion(sesion);
@@ -85,6 +86,10 @@ function Sesion({ sesion, setSesion, onFin }) {
   const setEj = (ei, fn) => setSesion({ ...sesion, ejercicios: sesion.ejercicios.map((e, i) => (i === ei ? fn(e) : e)) });
 
   function cambiar(ei, si, campo, valor) {
+    if (campo === "min") { // cardio: se escribe en minutos y se guarda en segundos
+      setEj(ei, (e) => ({ ...e, sets: e.sets.map((s, j) => (j === si ? { ...s, min: valor, reps: valor ? String(Math.round(+valor * 60)) : "" } : s)) }));
+      return;
+    }
     setEj(ei, (e) => {
       const viejo = e.sets[si][campo];
       return {
@@ -99,18 +104,30 @@ function Sesion({ sesion, setSesion, onFin }) {
     });
   }
 
-  function marcar(ei, si) {
+  function marcar(ei, si, valor) {
     const e = sesion.ejercicios[ei];
     const s = e.sets[si];
-    const done = !s.done;
-    const reps = s.reps || (esCoach(e) ? String(e.repsMax) : e.prev?.[si]?.reps ? String(e.prev[si].reps) : String(parseInt(e.reps) || ""));
-    const kg = s.kg || (si > 0 ? e.sets[si - 1].kg : "");
-    setEj(ei, (x) => ({ ...x, sets: x.sets.map((y, j) => (j === si ? { ...y, done, reps: done ? reps : y.reps, kg: done ? kg : y.kg } : y)) }));
+    const modo = modoEjercicio(e);
+    const done = valor != null ? true : !s.done;
+    let reps = valor != null ? String(valor) : s.reps || (esCoach(e) ? String(e.repsMax) : e.prev?.[si]?.reps ? String(e.prev[si].reps) : String(parseInt(e.reps) || ""));
+    if (modo === "cardio" && valor == null) reps = s.min ? String(Math.round(+s.min * 60)) : String(e.repsMax);
+    const kg = modo === "peso" ? s.kg || (si > 0 ? e.sets[si - 1].kg : "") : "0";
+    setEj(ei, (x) => ({ ...x, sets: x.sets.map((y, j) => (j === si ? { ...y, done, reps: done ? reps : y.reps, kg: done ? kg : y.kg,
+      ...(modo === "cardio" && done ? { min: y.min || String(Math.round(+reps / 60)) } : {}) } : y)) }));
     if (done) {
       const rec = data.records[e.nombre];
-      if (rec && +kg > +rec.peso) toast(`¡Nuevo récord en ${e.nombre}! ${fmtKg(+kg)} kg`, "trophy");
-      startRest(e.descanso);
+      if (modo === "peso" && rec && +kg > +rec.peso) toast(`¡Nuevo récord en ${e.nombre}! ${fmtKg(+kg)} kg`, "trophy");
+      if (modo !== "cardio") startRest(e.descanso);
     }
+  }
+
+  // Cronómetro para isométricos: un toque empieza, otro para y apunta los segundos
+  function crono(ei, si) {
+    if (cronoActivo && cronoActivo.ei === ei && cronoActivo.si === si) {
+      const segs = Math.max(1, Math.round((Date.now() - cronoActivo.inicio) / 1000));
+      setCronoActivo(null);
+      marcar(ei, si, segs);
+    } else setCronoActivo({ ei, si, inicio: Date.now() });
   }
 
   function serie(ei, delta) {
@@ -202,30 +219,18 @@ function Sesion({ sesion, setSesion, onFin }) {
         ${esCoach(e) && html`<div class="goal small"><${Icon} n="target" size=${15}/><span>${e.tipo === "peso" && e.pesoPrescrito
           ? html`Objetivo: <b>${e.repsMax} reps</b> en cada serie con <b>${fmtKg(e.pesoPrescrito)} ${unidadKg(e.nombre)}</b>. Si llegas, la próxima vez sube.`
           : e.tipo === "peso" ? html`Primera vez: elige un peso con el que hagas ${e.repsMin}-${e.repsMax} reps sin forzar la técnica.`
-          : e.tipo === "tiempo" ? (e.repsMax >= 120 ? html`Objetivo: <b>${Math.round(e.repsMin / 60)}-${Math.round(e.repsMax / 60)} minutos</b> a ritmo constante. Márcalo cuando lo termines.` : html`Objetivo: <b>${e.repsMax} s</b> por serie.`) : html`Objetivo: <b>${e.repsMax} reps</b> por serie.`}</span></div>`}
-        ${e.prev && html`<div class="prev small faint"><${Icon} n="history" size=${14}/> Última vez: ${e.prev.map((s) => `${fmtKg(s.kg)}×${s.reps}`).join(" · ")}</div>`}
+          : e.tipo === "tiempo" ? (e.repsMax >= 120 ? html`Objetivo: <b>${Math.round(e.repsMin / 60)}-${Math.round(e.repsMax / 60)} minutos</b> a ritmo constante. Márcalo cuando lo termines.` : html`Objetivo: <b>${e.repsMax} s</b> por serie. Pulsa ▶ para cronometrar y otra vez para parar.`) : html`Objetivo: <b>${e.repsMax} reps</b> por serie.`}</span></div>`}
+        ${e.prev && html`<div class="prev small faint"><${Icon} n="history" size=${14}/> Última vez: ${fmtSeries(modoEjercicio(e), e.prev)}</div>`}
 
-        <div class="sets">
-          <div class="set-row head"><span>#</span><span>kg</span><span>reps</span><span/></div>
-          ${e.sets.map((s, si) => html`<div class="set-row ${s.done ? "done" : ""}">
-            <span class="set-n">${si + 1}</span>
-            <input type="text" inputmode="decimal" placeholder=${e.prev?.[si]?.kg ?? "kg"} value=${s.kg}
-              onInput=${(ev) => cambiar(ei, si, "kg", num(ev.target.value))} aria-label="Kilos serie ${si + 1}"/>
-            <input type="text" inputmode="numeric" placeholder=${e.prev?.[si]?.reps ?? String(e.reps)} value=${s.reps}
-              onInput=${(ev) => cambiar(ei, si, "reps", num(ev.target.value))} aria-label="Repeticiones serie ${si + 1}"/>
-            <button class="set-check press" onClick=${() => marcar(ei, si)} aria-label=${s.done ? "Desmarcar serie" : "Marcar serie"}>
-              <${Icon} n="check" size=${20}/>
-            </button>
-          </div>`)}
-        </div>
-        ${esCoach(e) && e.sets.some((x) => x.done) && html`<div class="feel">
+        <${Series} e=${e} ei=${ei} cambiar=${cambiar} marcar=${marcar} crono=${crono} cronoActivo=${cronoActivo} ahora=${ahora}/>
+        ${esCoach(e) && modoEjercicio(e) !== "cardio" && e.sets.some((x) => x.done) && html`<div class="feel">
           <span class="small dim">¿Cómo fue?</span>
           ${[["facil", "Fácil"], ["justo", "Justo"], ["nopude", "No pude"]].map(([v, l]) => html`<button class="press ${e.sensacion === v ? "on " + v : ""}" onClick=${() => sentir(ei, v)}>${l}</button>`)}
         </div>`}
-        <div class="row" style="gap:8px;margin-top:10px">
+        ${modoEjercicio(e) !== "cardio" && html`<div class="row" style="gap:8px;margin-top:10px">
           <button class="btn tiny ghost press" onClick=${() => serie(ei, 1)}><${Icon} n="plus" size=${15}/> Serie</button>
           ${e.sets.length > 1 && !e.sets[e.sets.length - 1].done && html`<button class="btn tiny ghost press" onClick=${() => serie(ei, -1)}><${Icon} n="minus" size=${15}/> Serie</button>`}
-        </div>
+        </div>`}
       </section>`;
     })}
 
@@ -247,6 +252,62 @@ function Sesion({ sesion, setSesion, onFin }) {
     <button class="btn primary press" disabled=${!p.hechas} onClick=${terminar}>
       <${Icon} n="flag-check" size=${19}/> ${p.hechas ? "Terminar entreno" : "Marca al menos una serie"}
     </button>
+  </div>`;
+}
+
+// Filas de series según el tipo de ejercicio
+function Series({ e, ei, cambiar, marcar, crono, cronoActivo, ahora }) {
+  const modo = modoEjercicio(e);
+  const check = (s, si) => html`<button class="set-check press" onClick=${() => marcar(ei, si)} aria-label=${s.done ? "Desmarcar serie" : "Marcar serie"}><${Icon} n="check" size=${20}/></button>`;
+
+  if (modo === "cardio") {
+    const objetivo = e.repsMin != null ? `${Math.round(e.repsMin / 60)}-${Math.round(e.repsMax / 60)}` : "min";
+    return html`<div class="sets">
+      ${e.sets.map((s, si) => html`<div class="set-row cardio ${s.done ? "done" : ""}">
+        <label class="unit-input"><input type="text" inputmode="decimal" placeholder=${objetivo} value=${s.min ?? (s.reps ? String(Math.round(+s.reps / 60)) : "")}
+          onInput=${(ev) => cambiar(ei, si, "min", num(ev.target.value))} aria-label="Minutos"/><span>min</span></label>
+        ${check(s, si)}
+      </div>`)}
+    </div>`;
+  }
+
+  if (modo === "iso") return html`<div class="sets">
+    <div class="set-row iso head"><span>#</span><span>segundos</span><span/><span/></div>
+    ${e.sets.map((s, si) => {
+      const activo = cronoActivo && cronoActivo.ei === ei && cronoActivo.si === si;
+      const t = activo ? Math.floor((ahora - cronoActivo.inicio) / 1000) : null;
+      return html`<div class="set-row iso ${s.done ? "done" : ""}">
+        <span class="set-n">${si + 1}</span>
+        <input type="text" inputmode="numeric" placeholder=${e.repsMax ?? "s"} value=${activo ? String(t) : s.reps}
+          onInput=${(ev) => cambiar(ei, si, "reps", num(ev.target.value))} aria-label="Segundos serie ${si + 1}" readonly=${activo}/>
+        <button class="crono press ${activo ? "on" : ""}" onClick=${() => crono(ei, si)} aria-label=${activo ? "Parar cronómetro" : "Iniciar cronómetro"}>
+          <${Icon} n=${activo ? "player-stop-filled" : "player-play-filled"} size=${16}/>
+        </button>
+        ${check(s, si)}
+      </div>`;
+    })}
+  </div>`;
+
+  if (modo === "corporal") return html`<div class="sets">
+    <div class="set-row corporal head"><span>#</span><span>reps</span><span/></div>
+    ${e.sets.map((s, si) => html`<div class="set-row corporal ${s.done ? "done" : ""}">
+      <span class="set-n">${si + 1}</span>
+      <input type="text" inputmode="numeric" placeholder=${e.prev?.[si]?.reps ?? String(e.repsMax ?? e.reps)} value=${s.reps}
+        onInput=${(ev) => cambiar(ei, si, "reps", num(ev.target.value))} aria-label="Repeticiones serie ${si + 1}"/>
+      ${check(s, si)}
+    </div>`)}
+  </div>`;
+
+  return html`<div class="sets">
+    <div class="set-row head"><span>#</span><span>kg</span><span>reps</span><span/></div>
+    ${e.sets.map((s, si) => html`<div class="set-row ${s.done ? "done" : ""}">
+      <span class="set-n">${si + 1}</span>
+      <input type="text" inputmode="decimal" placeholder=${e.prev?.[si]?.kg ?? "kg"} value=${s.kg}
+        onInput=${(ev) => cambiar(ei, si, "kg", num(ev.target.value))} aria-label="Kilos serie ${si + 1}"/>
+      <input type="text" inputmode="numeric" placeholder=${e.prev?.[si]?.reps ?? String(e.repsMax ?? e.reps)} value=${s.reps}
+        onInput=${(ev) => cambiar(ei, si, "reps", num(ev.target.value))} aria-label="Repeticiones serie ${si + 1}"/>
+      ${check(s, si)}
+    </div>`)}
   </div>`;
 }
 

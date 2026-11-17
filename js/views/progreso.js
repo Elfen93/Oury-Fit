@@ -2,7 +2,7 @@ import { html, useState } from "../lib.js";
 import { DIAS_CORTOS } from "../data.js";
 import {
   hoy, rachas, semanaPrograma, lunesDe, sumarDias, fechaCorta, fechaRelativa, fmtKg, r1,
-  historialEjercicio, ejerciciosConHistorial, recalcularRecords,
+  historialEjercicio, ejerciciosConHistorial, recalcularRecords, fmtSeries, modoEjercicio,
 } from "../calc.js";
 import { Icon, TopBar, Section, LineChart, useApp, Empty } from "../ui.js";
 
@@ -105,7 +105,7 @@ export function Progreso() {
           ${ptsEj.length >= 2
             ? html`<${LineChart} pts=${ptsEj} c="var(--violet)" unidad=" kg"/>`
             : html`<p class="small faint" style="text-align:center;padding:12px">Necesitas 2 sesiones de ${ej} para ver la curva.</p>`}
-          ${hist.length > 0 && html`<div class="small dim" style="margin-top:8px">Última: ${hist[hist.length - 1].sets.map((s) => `${fmtKg(s.kg)}×${s.reps}`).join(" · ")}</div>`}
+          ${hist.length > 0 && html`<div class="small dim" style="margin-top:8px">Última: ${fmtSeries("peso", hist[hist.length - 1].sets)}</div>`}
         </div>`}
     <//>
 
@@ -127,7 +127,7 @@ export function Progreso() {
         </button>
         ${abierto === f && html`<div class="hist-body">
           ${(r.minutos || r.volumen) && html`<div class="small dim" style="margin-bottom:8px">${r.minutos ? `${r.minutos} min` : ""}${r.minutos && r.volumen ? " · " : ""}${r.volumen ? `${Math.round(r.volumen).toLocaleString("es-ES")} kg` : ""}</div>`}
-          ${(r.ejercicios || []).map((e) => html`<div class="kv small"><span>${e.nombre}</span><span class="dim">${e.sets.map((s) => `${fmtKg(s.kg)}×${s.reps}`).join(" · ")}</span></div>`)}
+          ${(r.ejercicios || []).map((e) => html`<div class="kv small"><span>${e.nombre}</span><span class="dim">${fmtSeries(modoEjercicio(e), e.sets)}</span></div>`)}
           ${!r.ejercicios && html`<p class="small faint">Sesión de la versión anterior (sin detalle por serie).</p>`}
           <button class="btn tiny ghost danger-text press" style="margin-top:10px" onClick=${() => borrarEntreno(f)}><${Icon} n="trash" size=${14}/> Borrar sesión</button>
         </div>`}

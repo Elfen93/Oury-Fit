@@ -1,6 +1,6 @@
 // Service worker: la app funciona sin conexión (los datos se sincronizan al volver).
 // Sube CACHE cuando cambies archivos para forzar la actualización.
-const CACHE = "ouryfit-v5.3.1";
+const CACHE = "ouryfit-v5.4.0";
 const ARCHIVOS = [
   "./", "index.html", "manifest.webmanifest", "icon.svg", "css/app.css",
   "vendor/preact.js", "vendor/hooks.js", "vendor/htm.js",
