@@ -25,7 +25,13 @@ App web (PWA) para registrar el gimnasio, la comida y el progreso. Pensada para 
 
 ### Despliegue
 
-`render.yaml` publica la carpeta como sitio estático en Render y reenvía `/neon-auth/*` al servidor de autenticación de Neon, para que la cookie de sesión sea del mismo dominio que la app. Hay que añadir la URL de Render como dominio de confianza en Neon Auth.
+Publicada en **Cloudflare Pages** (https://oury-fit.pages.dev), conectada a GitHub: cada push a la rama de producción se publica solo. Sin paso de compilación; directorio de salida `/`.
+
+- `functions/neon-auth/[[path]].js` reenvía `/neon-auth/*` al servidor de autenticación de Neon, para que la cookie de sesión sea del mismo dominio que la app.
+- `_headers`: `sw.js` sin caché.
+- La dirección de la app debe estar en: dominios de confianza de Neon Auth, CORS de la Data API y `ORIGENES` de `coach/src/index.ts`.
+
+`render.yaml` es la configuración equivalente para Render (respaldo).
 
 ### Entrenador (función en Neon)
 
