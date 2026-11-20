@@ -2,7 +2,7 @@
 // Sin SDK: unas pocas llamadas fetch.
 import { NEON } from "./data.js";
 
-// En Render, /neon-auth se reenvía al servidor de auth de Neon (ver render.yaml):
+// En Cloudflare, /neon-auth se reenvía al servidor de auth de Neon (ver functions/neon-auth):
 // así la cookie de sesión es del mismo dominio que la app y ningún navegador la bloquea.
 // Si el reenvío no existe (p. ej. en local), se usa la URL directa.
 let base = null;

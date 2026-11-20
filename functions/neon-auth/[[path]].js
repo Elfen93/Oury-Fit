@@ -1,6 +1,6 @@
 // Cloudflare Pages Function: reenvía /neon-auth/* al servidor de autenticación de Neon.
 // Así la cookie de sesión queda en el mismo dominio que la app y ningún navegador la bloquea
-// (equivale a la regla "rewrite" de render.yaml).
+// (sin esto, Safari y otros navegadores bloquean la cookie de un dominio ajeno).
 const DESTINO = "https://ep-frosty-wildflower-a1axnxg9.neonauth.ap-southeast-1.aws.neon.tech/neondb/auth";
 
 export async function onRequest({ request, params }) {

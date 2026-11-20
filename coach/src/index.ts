@@ -13,7 +13,7 @@ import { ENTREVISTA, GENERAR, PREGUNTA, REVISAR, SISTEMA } from "./prompts.js";
 import { HERRAMIENTAS, ejecutar, type Datos } from "./herramientas.js";
 
 const MODELO = "claude-opus-5-5";
-const ORIGENES = new Set(["https://oury-fit.pages.dev", "https://ouryfit-1jvh.onrender.com"]);
+const ORIGENES = new Set(["https://oury-fit.pages.dev"]);
 const MAX_BYTES = 2_000_000; // admite una foto comprimida
 const MAX_VUELTAS = 8;
 const TIPOS_IMAGEN = new Set(["image/jpeg", "image/png", "image/webp"]);

@@ -31,8 +31,6 @@ Publicada en **Cloudflare Pages** (https://oury-fit.pages.dev), conectada a GitH
 - `_headers`: `sw.js` sin caché.
 - La dirección de la app debe estar en: dominios de confianza de Neon Auth, CORS de la Data API y `ORIGENES` de `coach/src/index.ts`.
 
-`render.yaml` es la configuración equivalente para Render (respaldo).
-
 ### Entrenador (función en Neon)
 
 `coach/` es una Neon Function (Node 24) que verifica la sesión de Neon Auth, solo atiende a la web de OuryFit y llama a Claude (Opus 5.5) con salidas estructuradas. Acceso a Claude, en este orden:
